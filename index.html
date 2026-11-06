@@ -327,10 +327,10 @@ function chance(p){return Math.random()<p;}
 function pick(a){return a[Math.floor(Math.random()*a.length)];}
 function gauss(){var u=0,v=0;while(!u)u=Math.random();while(!v)v=Math.random();return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);}
 function pickW(pairs){var t=0,i;for(i=0;i<pairs.length;i++)t+=pairs[i][1];var r=Math.random()*t;for(i=0;i<pairs.length;i++){r-=pairs[i][1];if(r<=0)return pairs[i][0];}return pairs[pairs.length-1][0];}
-function fmt(n){return (n<0?'-':'')+'R$ '+Math.abs(Math.round(n)).toLocaleString('pt-BR');}
-function fmt2(n){return 'R$ '+n.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});}
+function fmt(n){return (n<0?'-':'')+'R$\u00a0'+Math.abs(Math.round(n)).toLocaleString('pt-BR');}
+function fmt2(n){return 'R$\u00a0'+n.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});}
 function fmtS(n){return Math.abs(n)>=1e5?(n<0?'-':'')+fmtK(Math.abs(n)):fmt(n);}
-function fmtK(n){if(n>=1e6)return 'R$ '+(n/1e6).toFixed(2).replace('.',',')+' mi';if(n>=1e5)return 'R$ '+Math.round(n/1000)+' mil';return fmt(n);}
+function fmtK(n){if(n>=1e6)return 'R$\u00a0'+(n/1e6).toFixed(2).replace('.',',')+'\u00a0mi';if(n>=1e5)return 'R$\u00a0'+Math.round(n/1000)+'\u00a0mil';return fmt(n);}
 function pct(r){return (r>=0?'+':'')+(r*100).toFixed(1).replace('.',',')+'%';}
 function pmt(price,n,rate){return rate?price*rate/(1-Math.pow(1+rate,-n)):price/n;}
 
@@ -1017,8 +1017,11 @@ function act(a,d,inModal){
   case 'bolsa':startView='bolsa';bTab=bLoad()?'port':bTab;render();window.scrollTo(0,0);break;
   case 'view':try{localStorage.setItem(VIEWK,localStorage.getItem(VIEWK)===d.v?'auto':d.v);}catch(e){}fitScreen();render();break;
   case 'renda':startView='renda';HD.err=null;render();window.scrollTo(0,0);break;
-  case 'r_f':var rg0=document.getElementById('rg');if(rg0)RS.g=rg0.value;RS.f=+d.v;render();break;
-  case 'r_q':var rg1=document.getElementById('rg');if(rg1)RS.g=rg1.value;RS.y1=Math.floor(HEND/100);RS.y0=RS.y1-(+d.n)+1;render();break;
+  case 'r_f':rKeep();RS.f=+d.v;render();break;
+  case 'r_mode':rKeep();RS.mode=d.v;render();break;
+  case 'r_kind':rKeep();RS.kind=d.k;render();break;
+  case 'r_T':rKeep();RS.T=d.v;render();break;
+  case 'r_q':rKeep();RS.y1=Math.floor(HEND/100);RS.y0=RS.y1-(+d.n)+1;render();break;
   case 'r_calc':rStart();break;
   case 'hist':startView='hist';HD.err=null;if(useSB()&&!HD.ind)hBusy(hLoadInd());else render();window.scrollTo(0,0);break;
   case 'h_mom':var mo=HMOM[+d.i];HS.y=mo.y;HS.m=mo.m;HS.dur=mo.dur;render();break;
@@ -2037,62 +2040,154 @@ function hEndHTML(){
  h+='<p class="muted sm">Valores em reais da época. Ibovespa e poupança com os mesmos aportes; poupança aproximada, sem a TR.</p>';
  return h+'<div class="stack"><button class="btn gold center" data-act="h_new">Simular outro período</button><button class="btn center" data-act="close">Voltar</button></div>';
 }
-/* ---------- Calculadora viver de renda (dados históricos reais) ---------- */
-var RS={g:'5.000',f:1,y0:2016,y1:0},RR=null;
+/* ---------- Calculadora viver de renda: motor (dados históricos reais, inflação e IR) ---------- */
+var RS={mode:'need',g:'5.000',f:1,y0:2016,y1:0,kind:'seg',ini:'0',T:'5',ap:'1.500'},RR=null,RSER=null;
 function rMonthRets(ym){var M=hMonth(ym),P=hMonth(hAdd(ym,-1)),o={};if(!M)return o;for(var t in M){var b=P&&P[t]?P[t].l:M[t].f;if(b>0)o[t]=M[t].l/b-1;}return o;}
 function rIbov(o){if(o.BOVA11!=null)return o.BOVA11;var a=[];for(var t in o)if(!ETFS[t]&&!FIIS[t])a.push(o[t]);return a.length?a.reduce(function(x,y){return x+y;},0)/a.length:0;}
-function rNeed(rets,wd,infl){var A=1,B=0,C=0;for(var t=0;t<rets.length;t++){if(wd[t]>0){C=Math.max(C,(B+wd[t])/A);B+=wd[t];}A*=1+rets[t];B*=1+rets[t];}var den=A-infl;return den<=0?Infinity:Math.max(C,B/den);}
-function rReal(rets,infl){var g=rets.reduce(function(a,r){return a*(1+r);},1);return Math.pow(g/infl,12/rets.length)-1;}
+function rSeries(){var key=HEND+':'+Object.keys(HD.years).sort().join(',');if(RSER&&RSER.key===key)return RSER;var m=[],cdi=[],ipca=[],ib=[],mr=[];
+ for(var ym=200801;ym<=HEND;ym=hAdd(ym,1)){var o=rMonthRets(ym),I=hInd(ym);m.push(ym);cdi.push(I.cdi);ipca.push(I.ipca);ib.push(rIbov(o));mr.push(o);}
+ RSER={key:key,end:HEND,m:m,cdi:cdi,ipca:ipca,ib:ib,mr:mr};return RSER;}
+function rBase(i){return HD.cum[RSER.m[i]]/(1+RSER.ipca[i]);}            // índice de preços no início do mês i
+function rEndIdx(i){return HD.cum[RSER.m[i]];}                            // índice de preços no fim do mês i
+function rRet(kind,i){var S=RSER;if(kind instanceof Array){var s=0;for(var j=0;j<kind.length;j++)s+=rRet(kind[j],i);return s/kind.length;}
+ if(kind==='seg'||kind==='CDI')return S.cdi[i];if(kind==='arr')return S.ib[i];if(kind==='mod')return .7*S.cdi[i]+.3*S.ib[i];return S.mr[i][kind];}
+function rRegr(age){return age<6?.225:age<12?.2:age<24?.175:.15;}       // tabela regressiva da renda fixa (idade em meses)
+function rRate(kind,age,sale){                                            // alíquota de IR sobre o ganho
+ if(kind instanceof Array){var s=0;for(var j=0;j<kind.length;j++)s+=rRate(kind[j],age,sale/kind.length);return s/kind.length;}
+ if(kind==='seg'||kind==='CDI')return rRegr(age);if(kind==='arr')return .15;if(kind==='mod')return .7*rRegr(age)+.3*.15;
+ if(FIIS[kind])return .2;if(ETFS[kind])return .15;return sale<=20000?0:.15;}   // ações: isentas se vender até R$ 20 mil no mês
+/* fase de saques: patrimônio C (moeda da época) aguenta os saques líquidos wd[t] e termina com o mesmo poder de compra, já descontado o IR latente? */
+function rSim(C,kind,i0,n,wd,infl){var V=C,B=C;
+ for(var t=0;t<n;t++){if(wd[t]>0){var gf=V>0?Math.max(0,(V-B)/V):0,g=wd[t]/(1-rRate(kind,t,wd[t])*gf);if(g>V)return false;B-=B*g/V;V-=g;}V*=1+rRet(kind,i0+t);}
+ return V-rRate(kind,n,Infinity)*Math.max(0,V-B)>=C*infl;}
+function rNeed(kind,i0,n,wd,infl){var hi=1e5;while(!rSim(hi,kind,i0,n,wd,infl)){hi*=2;if(hi>1e13)return Infinity;}var lo=0;
+ for(var k=0;k<50;k++){var mid=(lo+hi)/2;if(rSim(mid,kind,i0,n,wd,infl))hi=mid;else lo=mid;}return hi;}
+function rRealOf(kind,i0,n,infl){var g=1;for(var t=0;t<n;t++)g*=1+rRet(kind,i0+t);var gy=Math.pow(g,12/n)-1,iy=Math.pow(infl,12/n)-1,net=gy*(1-rRate(kind,999,Infinity));
+ return {gross:(1+gy)/(1+iy)-1,net:(1+net)/(1+iy)-1};}
+/* meta: patrimônio (reais de hoje) para viver da renda g por mês, com saques mensais, em todo o histórico */
+function rTarget(kind,g){var S=rSeries(),n=S.m.length,today=HD.cum[HEND],wd=[];for(var t=0;t<n;t++)wd.push(g*rBase(t)/today);
+ var C=rNeed(kind,0,n,wd,rEndIdx(n-1)/rBase(0));return isFinite(C)?C*today/rBase(0):Infinity;}
+/* fase de aportes: começa no mês s com I (reais de hoje) e aporta P (reais de hoje, corrigido pela inflação) por T meses; devolve o patrimônio líquido de IR em reais de hoje */
+function rAcc(kind,s,T,P,I){var today=HD.cum[HEND],V=I*rBase(s)/today,B=V;
+ for(var t=0;t<T;t++){var a=P*rBase(s+t)/today;V+=a;B+=a;V*=1+rRet(kind,s+t);}
+ var net=V-rRate(kind,Math.floor(T/2),Infinity)*Math.max(0,V-B);return net*today/rEndIdx(s+T-1);}
+/* o mesmo, com rendimento e inflação constantes (médias históricas), começando hoje */
+function rAvg(kind){var S=rSeries(),n=S.m.length,g=1,ii=1;for(var t=0;t<n;t++){g*=1+rRet(kind,t);ii*=1+S.ipca[t];}return {r:Math.pow(g,1/n)-1,i:Math.pow(ii,1/n)-1};}
+function rAccAvg(kind,T,P,I,av){var V=I,B=I,idx=1;for(var t=0;t<T;t++){V+=P*idx;B+=P*idx;V*=1+av.r;idx*=1+av.i;}return (V-rRate(kind,Math.floor(T/2),Infinity)*Math.max(0,V-B))/idx;}
+function rSolve(f,target){if(f(0)>=target)return 0;var hi=1000;while(f(hi)<target){hi*=2;if(hi>1e10)return Infinity;}var lo=0;for(var k=0;k<45;k++){var mid=(lo+hi)/2;if(f(mid)>=target)hi=mid;else lo=mid;}return hi;}
+function rPct(a,p){var b=a.slice().sort(function(x,y){return x-y;});return b[Math.min(b.length-1,Math.ceil(p*b.length)-1)];}
+function rSave(kind,g,T,I){var S=rSeries(),N=S.m.length,C=rTarget(kind,g),out={C:C,T:T,kind:kind};if(!isFinite(C))return out;
+ if(I>=C){out.done=1;return out;}
+ var ps=[],worst=null;for(var s=0;s+T<=N;s++){var P=rSolve(function(p){return rAcc(kind,s,T,p,I);},C);ps.push(P);if(!worst||P>worst.P)worst={P:P,ym:S.m[s]};}
+ if(ps.length>=12){out.n=ps.length;out.p50=rPct(ps,.5);out.p90=rPct(ps,.9);out.max=worst.P;out.worst=worst.ym;}
+ else{var av=rAvg(kind);out.avg=rSolve(function(p){return rAccAvg(kind,T,p,I,av);},C);out.av=av;}
+ return out;}
+function rTime(kind,g,P,I){var S=rSeries(),N=S.m.length,C=rTarget(kind,g),out={C:C,P:P,kind:kind};if(!isFinite(C))return out;
+ if(I>=C){out.done=1;return out;}
+ for(var T=1;N-T+1>=12;T++){var ok=0,n=N-T+1;for(var s=0;s<n;s++)if(rAcc(kind,s,T,P,I)>=C)ok++;   // só janelas completas de T meses
+  if(out.p50==null&&ok>=.5*n)out.p50=T;if(ok>=.9*n){out.p90=T;out.n=n;break;}}
+ if(out.p90==null){var av=rAvg(kind),V2=I,B2=I,idx=1,m=0;
+  while(m<1200){V2+=P*idx;B2+=P*idx;V2*=1+av.r;idx*=1+av.i;m++;if((V2-rRate(kind,Math.floor(m/2),Infinity)*Math.max(0,V2-B2))/idx>=C)break;}
+  out.avg=m<1200?m:Infinity;out.av=av;}
+ return out;}
+function rFmtM(m){if(m===Infinity)return 'mais de 100 anos';var a=Math.floor(m/12),r=m%12;return (a?a+(a===1?' ano':' anos'):'')+(a&&r?' e ':'')+(r?r+(r===1?' mês':' meses'):'');}
+function rKeep(){[['rg','g'],['ri','ini'],['rT','T'],['rp','ap']].forEach(function(p){var e=document.getElementById(p[0]);if(e)RS[p[1]]=e.value;});}
 function rCompute(){
- var y1=RS.y1||Math.floor(HEND/100),ym0=RS.y0*100+1,ymE=Math.min(y1*100+12,HEND),months=[];for(var ym=ym0;ym<=ymE;ym=hAdd(ym,1))months.push(ym);
- var base0=HD.cum[ym0]/(1+hInd(ym0).ipca),infl=HD.cum[ymE]/base0,today=HD.cum[HEND],k=RS.f;
- var wd=months.map(function(ym,i){return i%k===0?hNum(RS.g)*k*(HD.cum[ym]/(1+hInd(ym).ipca))/today:0;});
- var mr=months.map(rMonthRets),cdi=months.map(function(ym){return hInd(ym).cdi;}),ib=mr.map(rIbov);
- var toToday=today/base0,res=[];
- function add(id,e,n,d,rets,extra){var C=rNeed(rets,wd,infl);res.push({id:id,e:e,n:n,d:d,C:isFinite(C)?C*toToday:Infinity,real:rReal(rets,infl),x:extra});}
- add('seg','🛟','Segura','100% CDI',cdi);
- add('mod','⚖️','Moderada','70% CDI e 30% Ibovespa',cdi.map(function(c,i){return .7*c+.3*ib[i];}));
- add('arr','🚀','Arriscada','100% Ibovespa',ib);
- var cand=[];Object.keys(mr[0]).forEach(function(t){if(mr.every(function(o){return o[t]!=null;}))cand.push(t);});
- var sc=cand.map(function(t){var r=mr.map(function(o){return o[t];});return {t:t,r:r,C:rNeed(r,wd,infl),tot:r.reduce(function(a,x){return a*(1+x);},1)-1};});
- sc.push({t:'CDI',r:cdi,C:rNeed(cdi,wd,infl),tot:cdi.reduce(function(a,x){return a*(1+x);},1)-1});
- var seen={};sc=sc.filter(function(x){return isFinite(x.C);}).sort(function(a,b){return a.C-b.C;}).filter(function(x){var co=x.t.slice(0,4);if(seen[co])return false;seen[co]=1;return true;}).slice(0,5); // um ativo por empresa
- if(sc.length)add('best','🔮','Melhor carteira do período','Os '+sc.length+' ativos que exigiriam menos patrimônio, em partes iguais',months.map(function(_,i){return sc.reduce(function(a,x){return a+x.r[i];},0)/sc.length;}),sc);
- RR={ym0:ym0,ymE:ymE,g:hNum(RS.g),f:k,infl:infl,res:res,n:cand.length,est:hInd(ymE).est};
+ var S=rSeries(),y1=RS.y1||Math.floor(HEND/100),ym0=RS.y0*100+1,ymE=Math.min(y1*100+12,HEND),i0=S.m.indexOf(ym0),i1=S.m.indexOf(ymE),n=i1-i0+1,k=RS.f,g=hNum(RS.g),today=HD.cum[HEND];
+ var wd=[];for(var t=0;t<n;t++)wd.push(t%k===0?g*k*rBase(i0+t)/today:0);
+ var infl=rEndIdx(i1)/rBase(i0),toT=today/rBase(i0),res=[];
+ function add(id,e,nm,d,kind,extra){var C=rNeed(kind,i0,n,wd,infl);res.push({id:id,e:e,n:nm,d:d,C:isFinite(C)?C*toT:Infinity,real:rRealOf(kind,i0,n,infl),x:extra});}
+ add('seg','🛟','Segura','100% CDI','seg');add('mod','⚖️','Moderada','70% CDI e 30% Ibovespa','mod');add('arr','🚀','Arriscada','100% Ibovespa','arr');
+ var cand=[];Object.keys(S.mr[i0]).forEach(function(t){for(var i=i0;i<=i1;i++)if(S.mr[i][t]==null)return;cand.push(t);});cand.push('CDI');
+ var seen={},sc=cand.map(function(t){var c=rNeed(t,i0,n,wd,infl),gr=1;for(var i=i0;i<=i1;i++)gr*=1+rRet(t,i);return {t:t,C:c,tot:gr-1};})
+  .filter(function(x){return isFinite(x.C);}).sort(function(a,b){return a.C-b.C;}).filter(function(x){var co=x.t.slice(0,4);if(seen[co])return false;seen[co]=1;return true;}).slice(0,5);
+ if(sc.length)add('best','🔮','Melhor carteira do período','Os '+sc.length+' ativos que exigiriam menos patrimônio, em partes iguais',sc.map(function(x){return x.t;}),sc);
+ RR={mode:'need',ym0:ym0,ymE:ymE,g:g,f:k,res:res,est:hInd(ymE).est,cdiReal:rRealOf('seg',i0,n,infl)};
 }
-function rStart(){var g=document.getElementById('rg');if(g)RS.g=g.value;if(hNum(RS.g)<=0){toast('Informe quanto você gasta por mês.');return;}
- var y1=RS.y1||Math.floor(HEND/100);if(RS.y0>y1){toast('O ano inicial precisa vir antes do final.');return;}
- var ps=[hLoadInd()];for(var y=Math.max(2008,RS.y0-1);y<=y1;y++)ps.push(hLoadYear(y));
- hBusy(Promise.all(ps),function(){rCompute();window.scrollTo(0,0);});}
+function rStart(){rKeep();var g=hNum(RS.g);if(g<=0){toast('Informe a renda mensal.');return;}
+ var ps=[hLoadInd()],y0=2008,y1=Math.floor(HEND/100);
+ if(RS.mode==='need'){var ye=RS.y1||y1;
+  if(RS.y0>ye){toast('O ano inicial precisa vir antes do final.');return;}
+  if(ye-RS.y0+1<3){toast('Escolha um período de pelo menos 3 anos.');return;}
+  y0=Math.max(2008,RS.y0-1);y1=ye;}
+ else if(RS.mode==='save'){var T=Math.round(hNum(RS.T)*12);if(T<1||T>600){toast('Escolha um prazo entre 1 e 50 anos.');return;}}
+ else if(hNum(RS.ap)<=0){toast('Informe quanto você aporta por mês.');return;}
+ for(var y=y0;y<=y1;y++)ps.push(hLoadYear(y));
+ hBusy(Promise.all(ps),function(){var S=rSeries(),I=hNum(RS.ini);
+  if(RS.mode==='need')rCompute();
+  else if(RS.mode==='save'){RR={mode:'save',g:hNum(RS.g),I:I,o:rSave(RS.kind,hNum(RS.g),Math.round(hNum(RS.T)*12),I)};}
+  else RR={mode:'time',g:hNum(RS.g),I:I,o:rTime(RS.kind,hNum(RS.g),hNum(RS.ap),I)};});
+}
+var RKINDS={seg:['🛟','Segura','100% CDI'],mod:['⚖️','Moderada','70% CDI e 30% Ibovespa'],arr:['🚀','Arriscada','100% Ibovespa']};
 function rendaScreen(){
  var h='';
  if(!useSB())return '<div class="hero" style="padding-bottom:28px"><h1 style="font-size:40px">🏖️ Viver<br><em>de renda</em></h1><p>Quanto você precisa investido para viver de renda?</p></div><div class="diffs"><div class="card"><h3>Disponível no site e no app</h3><p class="muted">A calculadora usa os dados históricos que ficam no site do jogo.</p><p><a href="https://beloathaide-web.github.io/Vida-e-grana/" target="_blank" rel="noopener" style="color:inherit">Abrir o site do jogo</a></p></div><button class="btn center" data-act="b_exit">Voltar</button></div>';
  if(HD.err)h+='<div class="warn" style="margin:12px 14px 0">Não deu para carregar os dados. Confira a internet. <button class="chip" data-act="h_retry">Tentar de novo</button></div>';
  if(!HD.ind){if(!HD.busy&&!HD.err)setTimeout(function(){hBusy(hLoadInd());},0);return h+'<p class="muted" style="text-align:center;padding:40px 20px">Carregando…</p>';}
- var yE=Math.floor(HEND/100),y1=RS.y1||yE,ya='',yb='';
- for(var y=2008;y<=yE;y++){ya+='<option value="'+y+'"'+(y===RS.y0?' selected':'')+'>'+y+'</option>';yb+='<option value="'+y+'"'+(y===y1?' selected':'')+'>'+y+'</option>';}
- h+='<div class="hero" style="padding-bottom:26px"><h1 style="font-size:40px">🏖️ Viver<br><em>de renda</em></h1><p>Quanto você precisaria ter investido para pagar seus gastos só com o rendimento, sem nunca comer o dinheiro? Calculado com o que aconteceu de verdade.</p></div><div class="diffs">';
- h+='<div class="card"><h3>Seus gastos</h3><div class="field"><label for="rg">Quanto você gasta por mês</label><input id="rg" class="input" inputmode="numeric" value="'+esc(RS.g)+'"></div><p class="muted sm" style="margin:6px 0 0">Em reais de hoje. O cálculo corrige pela inflação de cada época.</p>'+
-  '<div class="lbl"><span>De quanto em quanto tempo você resgata</span></div><div class="chips">'+[[1,'30 dias'],[6,'180 dias'],[12,'360 dias']].map(function(o){return '<button class="chip'+(RS.f===o[0]?' on':'')+'" data-act="r_f" data-v="'+o[0]+'">'+o[1]+'</button>';}).join('')+'</div></div>';
- h+='<div class="card"><h3>Período histórico</h3><div class="chips" style="margin-bottom:8px">'+[5,10,15].map(function(n){return '<button class="chip'+(RS.y0===yE-n+1&&y1===yE?' on':'')+'" data-act="r_q" data-n="'+n+'">Últimos '+n+' anos</button>';}).join('')+'</div>'+
-  '<div class="grid2"><div class="field"><label for="ry0">De</label><select id="ry0" class="input">'+ya+'</select></div><div class="field"><label for="ry1">Até</label><select id="ry1" class="input">'+yb+'</select></div></div><p class="muted sm" style="margin:6px 0 0">Os dados vão até '+hLabel(HEND)+'.</p></div>';
+ var yE=Math.floor(HEND/100),y1=RS.y1||yE,M=RS.mode;
+ h+='<div class="hero" style="padding-bottom:22px"><h1 style="font-size:40px">🏖️ Viver<br><em>de renda</em></h1><p>Calculado com o que aconteceu de verdade desde 2008, já com inflação e imposto de renda.</p></div><div class="diffs">';
+ h+='<div class="chips" style="justify-content:center">'+[['need','Quanto preciso?'],['save','Quanto aportar?'],['time','Quanto tempo?']].map(function(o){return '<button class="chip'+(M===o[0]?' on':'')+'" data-act="r_mode" data-v="'+o[0]+'">'+o[1]+'</button>';}).join('')+'</div>';
+ h+='<p class="muted sm" style="text-align:center;margin:0">'+(M==='need'?'Quanto você precisaria ter investido para viver só da renda.':M==='save'?'Quanto aportar por mês para viver de renda num prazo.':'Em quanto tempo você chega lá aportando um valor fixo.')+'</p>';
+ h+='<div class="card"><div class="field"><label for="rg">'+(M==='need'?'Quanto você gasta por mês':'Quanto você quer de renda por mês')+'</label><input id="rg" class="input" inputmode="numeric" value="'+esc(RS.g)+'"></div>';
+ if(M!=='need')h+='<div class="field" style="margin-top:8px"><label for="ri">Quanto você já tem investido</label><input id="ri" class="input" inputmode="numeric" value="'+esc(RS.ini)+'"></div>';
+ if(M==='save')h+='<div class="field" style="margin-top:8px"><label for="rT">Em quantos anos você quer chegar lá</label><input id="rT" class="input" inputmode="numeric" value="'+esc(RS.T)+'"></div><div class="chips" style="margin-top:6px">'+[1,3,5,10,20].map(function(a){return '<button class="chip'+(hNum(RS.T)===a?' on':'')+'" data-act="r_T" data-v="'+a+'">'+a+(a===1?' ano':' anos')+'</button>';}).join('')+'</div>';
+ if(M==='time')h+='<div class="field" style="margin-top:8px"><label for="rp">Quanto você aporta por mês</label><input id="rp" class="input" inputmode="numeric" value="'+esc(RS.ap)+'"></div>';
+ h+='<p class="muted sm" style="margin:6px 0 0">Valores em reais de hoje. O cálculo corrige tudo pela inflação de cada época'+(M==='need'?'':', inclusive os aportes, que sobem com a inflação')+'.</p></div>';
+ if(M==='need'){
+  var ya='',yb='';for(var y=2008;y<=yE;y++){ya+='<option value="'+y+'"'+(y===RS.y0?' selected':'')+'>'+y+'</option>';yb+='<option value="'+y+'"'+(y===y1?' selected':'')+'>'+y+'</option>';}
+  h+='<div class="card"><h3>Saques</h3><div class="chips">'+[[1,'A cada 30 dias'],[6,'A cada 180 dias'],[12,'A cada 360 dias']].map(function(o){return '<button class="chip'+(RS.f===o[0]?' on':'')+'" data-act="r_f" data-v="'+o[0]+'">'+o[1]+'</button>';}).join('')+'</div></div>';
+  h+='<div class="card"><h3>Período histórico</h3><div class="chips" style="margin-bottom:8px">'+[5,10,15].map(function(n){return '<button class="chip'+(RS.y0===yE-n+1&&y1===yE?' on':'')+'" data-act="r_q" data-n="'+n+'">Últimos '+n+' anos</button>';}).join('')+'</div>'+
+   '<div class="grid2"><div class="field"><label for="ry0">De</label><select id="ry0" class="input">'+ya+'</select></div><div class="field"><label for="ry1">Até</label><select id="ry1" class="input">'+yb+'</select></div></div>'+
+   '<p class="muted sm" style="margin:6px 0 0">Mínimo de 3 anos; 10 anos ou mais é o mais confiável, porque um período curto retrata um momento só. Os dados vão até '+hLabel(HEND)+'.</p></div>';
+ }else{
+  h+='<div class="card"><h3>Onde o dinheiro fica</h3><div class="stack" style="margin-top:4px">'+Object.keys(RKINDS).map(function(k){var K=RKINDS[k];return '<button class="prow" style="'+(RS.kind===k?'outline:3px solid var(--brand-hi)':'')+'" data-act="r_kind" data-k="'+k+'"><span><b>'+K[0]+' '+K[1]+'</b><small>'+K[2]+'</small></span></button>';}).join('')+'</div></div>';
+ }
  h+='<button class="btn gold center" style="padding:15px;font-size:17px" data-act="r_calc"'+(HD.busy?' disabled':'')+'>'+(HD.busy?'Calculando…':'Calcular')+'</button>';
- if(RR){
-  h+='<div class="lbl" style="margin-top:18px"><span>'+hLabel(RR.ym0)+' a '+hLabel(RR.ymE)+' · '+fmt(RR.g)+' por mês</span></div>';
-  RR.res.forEach(function(r){
-   h+='<div class="card"><div class="kv" style="border:0;padding:0"><span><b style="font-size:17px">'+r.e+' '+r.n+'</b><br><small class="muted">'+r.d+'</small></span></div>';
-   if(isFinite(r.C))h+='<div style="font-size:26px;font-weight:800;margin:6px 0 2px">'+fmt(r.C)+'</div><p class="muted sm" style="margin:0">em reais de hoje · dá para retirar '+pct1(RR.g*12/r.C)+' ao ano</p>';
-   else h+='<div style="font-size:18px;font-weight:800;margin:6px 0 2px" class="dn">Não sustenta</div><p class="muted sm" style="margin:0">Nesse período essa carteira rendeu menos que a inflação: nenhum valor permitiria viver só do rendimento.</p>';
-   h+='<div class="kv" style="margin-top:6px"><span>Rendimento real médio</span><b class="'+(r.real>=0?'up':'dn')+'">'+pct(r.real)+' ao ano</b></div>';
+ if(RR&&RR.mode===M)h+=rResultHTML();
+ h+='<div class="card"><h3>Como calculamos</h3><p class="sm">Usamos os rendimentos reais de cada mês desde 2008: CDI do Banco Central e Ibovespa (BOVA11, com dividendos). O imposto de renda incide só sobre a parte de rendimento de cada saque, com a alíquota da idade do dinheiro: 22,5% até 6 meses, 20% até 1 ano, 17,5% até 2 anos e 15% depois disso na renda fixa; 15% no Ibovespa.</p>'+
+  '<p class="sm">Viver de renda aqui significa: pagar os gastos corrigidos pela inflação, nunca zerar e manter o poder de compra do patrimônio, sem comer o dinheiro.</p>'+
+  '<p class="muted sm">O IOF não entra porque só incide em resgates feitos antes de 30 dias da aplicação. Passado não garante futuro. Não é recomendação de investimento.</p></div>';
+ h+='<button class="btn center" data-act="b_exit">Voltar</button></div>';
+ return h;
+}
+function rResultHTML(){
+ var h='',R=RR;
+ if(R.mode==='need'){
+  h+='<div class="card" style="background:var(--brand-soft)"><p class="sm" style="margin:0">'+hLabel(R.ym0)+' a '+hLabel(R.ymE)+': o CDI rendeu <b>'+pct(R.cdiReal.gross)+' ao ano acima da inflação</b>, ou '+pct(R.cdiReal.net)+' depois do imposto. É esse juro real que define quanto você precisa.</p></div>';
+  R.res.forEach(function(r){
+   h+='<div class="card"><b style="font-size:17px">'+r.e+' '+r.n+'</b><br><small class="muted">'+r.d+'</small>';
+   if(isFinite(r.C))h+='<div style="font-size:26px;font-weight:800;margin:6px 0 2px">'+fmt(r.C)+'</div><p class="muted sm" style="margin:0">em reais de hoje, para '+fmt(R.g)+' por mês já descontado o IR</p>';
+   else h+='<div style="font-size:18px;font-weight:800;margin:6px 0 2px" class="dn">Não sustenta</div><p class="muted sm" style="margin:0">Nesse período, nenhum valor permitiria viver só da renda com essa carteira: depois de inflação, imposto e quedas, o patrimônio encolheria.</p>';
+   h+='<div class="kv" style="margin-top:6px"><span>Rendimento real</span><b class="'+(r.real.net>=0?'up':'dn')+'">'+pct(r.real.gross)+' ao ano · '+pct(r.real.net)+' após IR</b></div>';
    if(r.x)h+='<div class="lbl" style="margin:8px 0 4px"><span>Quais eram</span></div>'+r.x.map(function(a){return kvr((a.t==='CDI'?'CDI':a.t)+(BSEC[a.t]?' · '+BSEC[a.t]:''),pct(a.tot)+' no período');}).join('')+
     '<div class="warn">🔮 Só dá para montar essa carteira olhando para trás. Na época, ninguém sabia quais seriam os melhores ativos.</div>';
    h+='</div>';});
-  h+='<div class="card"><h3>Como calculamos</h3><p class="sm">É o menor patrimônio que, pagando seus gastos (corrigidos pela inflação) a cada '+(RR.f===1?'30':RR.f===6?'180':'360')+' dias, nunca chega a zero e termina o período com o mesmo poder de compra do início. Ou seja: você vive só da renda, sem comer o dinheiro.</p>'+
-   '<p class="sm">Pela regra prática do jogo, de 300 vezes o gasto mensal, seriam '+fmt(RR.g*300)+'.</p>'+
-   '<p class="muted sm">Preços com dividendos reinvestidos. Valores brutos, sem imposto. Inflação, Selic e CDI do Banco Central'+(RR.est?'; o último mês usa os juros mais recentes disponíveis e inflação estimada':'')+'. Passado não garante futuro. Não é recomendação de investimento.</p></div>';
+  h+='<p class="muted sm" style="text-align:center">Pela regra prática do jogo, de 300 vezes o gasto mensal: '+fmt(R.g*300)+'.'+(R.est?' O último mês usa os juros mais recentes e inflação estimada.':'')+'</p>';
+  return h;}
+ var o=R.o,K=RKINDS[o.kind];
+ h+='<div class="card"><b style="font-size:17px">'+K[0]+' '+K[1]+'</b><br><small class="muted">'+K[2]+'</small>';
+ if(!isFinite(o.C))return h+'<div style="font-size:18px;font-weight:800;margin:8px 0 2px" class="dn">Essa carteira não sustenta</div><p class="sm">De 2008 até hoje, viver de renda com essa carteira não teria funcionado: as quedas fortes no começo, somadas à inflação e ao imposto, fariam o patrimônio encolher. Experimente a segura ou a moderada.</p></div>';
+ h+='<div class="kv"><span>Meta para '+fmt(R.g)+' por mês</span><b>'+fmt(o.C)+'</b></div>';
+ if(o.done)return h+'<p class="up" style="font-weight:800">Você já tem o suficiente para viver de renda com essa carteira!</p></div>';
+ if(R.mode==='save'){
+  var T=o.T;
+  if(o.p90!=null){
+   h+='<p class="sm" style="margin:8px 0 2px">Para chegar lá em '+rFmtM(T)+', aporte por mês:</p><div style="font-size:28px;font-weight:800">'+fmt(o.p90)+'</div>'+
+    '<p class="muted sm" style="margin:0">Esse valor teria funcionado em 90% dos '+o.n+' meses de início desde 2008.</p>'+
+    kvr('No caso típico (mediana)',fmt(o.p50))+kvr('No pior momento para começar ('+hLabel(o.worst)+')',fmt(o.max))+
+    kvr('Total aportado (em reais de hoje)',fmt(o.p90*T))+kvr('Já investido',fmt(R.I));
+  }else{
+   h+='<p class="sm" style="margin:8px 0 2px">Para chegar lá em '+rFmtM(T)+', aporte por mês:</p><div style="font-size:28px;font-weight:800">'+fmt(o.avg)+'</div>'+
+    '<p class="muted sm" style="margin:0">O prazo é maior que o histórico disponível, então usamos o rendimento médio de 2008 a hoje: '+pct(Math.pow((1+o.av.r)/(1+o.av.i),12)-1)+' ao ano acima da inflação, antes do imposto. É uma estimativa: o caminho real tem altos e baixos.</p>'+
+    kvr('Total aportado (em reais de hoje)',fmt(o.avg*T));
+  }
+  return h+'<p class="muted sm">O aporte sobe com a inflação a cada mês. O imposto que você pagaria ao resgatar já está descontado da meta.</p></div>';
  }
- h+='<button class="btn center" data-act="b_exit">Voltar</button></div>';
- return h;
+ if(o.p90!=null)h+='<p class="sm" style="margin:8px 0 2px">Aportando '+fmt(o.P)+' por mês, você chega lá em:</p><div style="font-size:28px;font-weight:800">'+rFmtM(o.p50)+'</div>'+
+  '<p class="muted sm" style="margin:0">no caso típico (mediana). Em 90% dos meses de início desde 2008, em até <b>'+rFmtM(o.p90)+'</b>.</p>';
+ else h+='<p class="sm" style="margin:8px 0 2px">Aportando '+fmt(o.P)+' por mês, você chega lá em cerca de:</p><div style="font-size:28px;font-weight:800">'+rFmtM(o.avg)+'</div>'+
+  '<p class="muted sm" style="margin:0">O tempo é maior que o histórico disponível, então usamos o rendimento médio de 2008 a hoje: '+pct(Math.pow((1+o.av.r)/(1+o.av.i),12)-1)+' ao ano acima da inflação, antes do imposto.'+(o.p50?' Metade dos meses de início desde 2008 chegou em '+rFmtM(o.p50)+'.':'')+'</p>';
+ return h+kvr('Já investido',fmt(R.I))+'<p class="muted sm">O aporte sobe com a inflação a cada mês. O imposto que você pagaria ao resgatar já está descontado da meta.</p></div>';
 }
 function startScreen(){
  var saved=load(),h='<div class="hero">'+pxMentor('pxhero')+'<h1>Vida<br>&amp; <em>Grana</em></h1><p>Chegue a R$ 1 milhão o mais rápido que conseguir.</p></div><div class="diffs">';
@@ -2249,7 +2344,7 @@ function fitScreen(){try{var vm=viewMode(),touch=IS_APP||(window.matchMedia&&mat
  if(vm==='phone')z=1;else if(vm==='desk')z=Math.max(1,Math.min(1.6,hh/700,w/560));document.documentElement.style.zoom=z>1.01?z.toFixed(3):'';}catch(e){}}
 fitScreen();try{window.addEventListener('resize',fitScreen);}catch(e){}
 try{if(!localStorage.getItem(INTRO)){var sv0=load();if(!sv0||sv0.over)startView='intro';}}catch(e){}
-try{document.addEventListener('change',function(e){var t=e.target;if(t&&(t.id==='ry0'||t.id==='ry1')){var rg2=document.getElementById('rg');if(rg2)RS.g=rg2.value;RS.y0=+document.getElementById('ry0').value;RS.y1=+document.getElementById('ry1').value;render();return;}
+try{document.addEventListener('change',function(e){var t=e.target;if(t&&(t.id==='ry0'||t.id==='ry1')){rKeep();RS.y0=+document.getElementById('ry0').value;RS.y1=+document.getElementById('ry1').value;render();return;}
  if(t&&(t.id==='hy'||t.id==='hm')){hKeep();HS.y=+document.getElementById('hy').value;HS.m=+document.getElementById('hm').value;render();}});}catch(e){}
 render();
 if(typeof window!=='undefined'&&window.__TEST__){window.__TEST__={R:function(){return RR;},cur:function(){return cur;},newGame:newGame,tick:tick,S:function(){return S;},modalQ:function(){return modalQ;},act:act,pv:pv,goal:goal,render:render};}
