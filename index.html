@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Vida &amp; Grana · jogo de finanças</title>
-<meta name="description" content="Viva uma vida inteira e aprenda a investir na prática. Jogo educativo de finanças com Tesouro, ações, fundos imobiliários e um simulador de carteira com a bolsa de verdade.">
+<meta name="description" content="Viva uma vida inteira e aprenda a investir na prática. Jogo educativo de finanças com Tesouro, ações, fundos imobiliários, simulador de carteira com a bolsa de verdade e viagem no tempo com preços históricos da B3.">
 <link rel="icon" href="img/icone.png">
 <meta property="og:title" content="Vida &amp; Grana">
 <meta property="og:description" content="Viva uma vida inteira e aprenda a investir na prática.">
@@ -1015,6 +1015,21 @@ function act(a,d,inModal){
   case 'real':startView='real';render();window.scrollTo(0,0);break;
   case 'bolsa_game':save();S=null;cur=null;modalQ=[];$ov.hidden=true;$ov.innerHTML='';tab='home';startView='bolsa';bTab=bLoad()?'port':'mkt';render();window.scrollTo(0,0);break;
   case 'bolsa':startView='bolsa';bTab=bLoad()?'port':bTab;render();window.scrollTo(0,0);break;
+  case 'hist':startView='hist';HD.err=null;render();window.scrollTo(0,0);break;
+  case 'h_mom':var mo=HMOM[+d.i];HS.y=mo.y;HS.m=mo.m;HS.dur=mo.dur;render();break;
+  case 'h_dur':HS.dur=+d.d;hKeep();render();break;
+  case 'h_cart':HS.cart=d.k;hKeep();render();break;
+  case 'h_pick':var pi=HS.pick.indexOf(d.t);if(pi>=0)HS.pick.splice(pi,1);else if(HS.pick.length<5)HS.pick.push(d.t);else toast('No máximo 5 ativos.');hKeep();render();break;
+  case 'h_start':hStart();break;
+  case 'h_retry':HD.err=null;render();break;
+  case 'h_go':hGo(+d.n);break;
+  case 'h_expl':cur={type:'hexpl',ym:+d.ym};drawModal();break;
+  case 'h_ap':cur={type:'hap'};drawModal();break;
+  case 'h_ap_ok':var nv=hNum(document.getElementById('hap2')&&document.getElementById('hap2').value),Hh=hGet();if(nv<0){break;}Hh.ap=nv;hPut(Hh);cur=null;closeModal();toast('Aporte atualizado.');break;
+  case 'h_end':cur={type:'hend'};drawModal();break;
+  case 'h_menu':cur={type:'hmenu'};drawModal();break;
+  case 'h_new':hPut(null);cur=null;$ov.hidden=true;$ov.innerHTML='';HS.pick=[];render();window.scrollTo(0,0);break;
+  case 'h_exit_m':cur=null;$ov.hidden=true;$ov.innerHTML='';startView='home';render();window.scrollTo(0,0);break;
   case 'b_exit':startView='home';render();window.scrollTo(0,0);break;
   case 'b_chip':var bi=document.getElementById('bstart');if(bi)bi.value=Number(d.v).toLocaleString('pt-BR');break;
   case 'b_create':var bs=document.getElementById('bstart'),bv0=bs?parseFloat(String(bs.value).replace(/[^\d,]/g,'').replace(',','.')):0;
@@ -1268,8 +1283,7 @@ function introScreen(){
 function modeScreen(){
  var h=stepHero('home','De onde você parte?','A dificuldade é a sua origem: define o dinheiro inicial, a ajuda da família e as oportunidades.')+'<div class="diffs">';
  DKEYS.forEach(function(k){var D=DIFFS[k];h+='<button class="diff'+(k==='d'?' hard':'')+'" data-act="ob_mode" data-k="'+k+'"><div class="e">'+D.e+'</div><div><b>'+D.n+'</b><span>'+D.sub+'</span></div></button>';});
- h+='<button class="diff" data-act="ob_mode" data-k="r"><div class="e">🪞</div><div><b>Sua realidade</b><span>Comece com a sua renda e os seus gastos de hoje. Fora do ranking.</span></div></button>';
- return h+'</div>';
+  return h+'</div>';
 }
 function nickScreen(){
  var D=DIFFS[ob.k]||DIFFS.f,saved=load();
@@ -1650,6 +1664,11 @@ function modalHTML(m){
   if(S.debt>0.5)h+='<div class="card" style="margin:10px 0 0"><div class="lbl" style="margin:0 0 6px"><span>💳 Fatura do cartão</span><b class="dn">'+fmt(S.debt)+'</b></div><div class="chips">'+[['none','Nada'],['min','Mínimo (15%)'],['total','Tudo']].map(function(o){return '<button class="chip '+(m.card===o[0]?'on':'')+'" data-act="bcard" data-v="'+o[0]+'">'+o[1]+'</button>';}).join('')+'</div><p class="muted sm" style="margin:6px 0 0">O que ficar devendo paga ~12% ao mês, até o teto legal.</p></div>';
   if((S.arrears||0)>0.5)h+='<div class="warn">🔴 Atrasados: '+fmt(S.arrears)+'. Nome negativado: sem financiamento nem parcelamento.</div>';
   h+='<div class="stack">'+(S.debt+(S.arrears||0)>=300?'<button class="btn gold center" data-act="reneg">🤝 Renegociar dívidas</button>':'')+'<button class="btn primary center" data-act="bills_ok">Confirmar e avançar</button><button class="chip" style="justify-self:center" data-act="autopay">'+(S.autopay?'● ':'○ ')+'Pagar tudo sozinho quando o dinheiro der</button><button class="btn center" data-act="bills_cancel">Voltar</button></div>';
+ }else if(m.type==='hexpl'){h=hExplHTML(m.ym);
+ }else if(m.type==='hend'){h=hEndHTML();
+ }else if(m.type==='hnews'){var nn=HNOTE[m.ym];h='<div class="em">📰</div><p class="muted sm">'+hLabel(m.ym)+'</p><h2>'+nn.t+'</h2><p>'+nn.news+'</p><div class="stack"><button class="btn primary center" data-act="h_expl" data-ym="'+m.ym+'">Como isso mexeu na bolsa?</button><button class="btn center" data-act="close">Continuar</button></div>';
+ }else if(m.type==='hap'){var Ha=hGet();h='<h2>Mudar o aporte</h2><p class="muted">Vale a partir do próximo mês.</p><input id="hap2" class="input" inputmode="numeric" value="'+Math.round(Ha.ap)+'"><p class="muted sm">Valor em reais de hoje. O jogo ajusta pela inflação para a época.</p><div class="stack"><button class="btn primary center" data-act="h_ap_ok">Salvar</button><button class="btn center" data-act="close">Cancelar</button></div>';
+ }else if(m.type==='hmenu'){h='<h2>Viagem no tempo</h2><div class="stack"><button class="btn center" data-act="h_new">Simular outro período</button><button class="btn center" data-act="h_exit_m">Voltar ao início</button><button class="btn primary center" data-act="close">Continuar</button></div>';
  }else if(m.type==='btrade'){h=bTradeHTML(m);
  }else if(m.type==='bmenu'){var Bm=bLoad();
   h='<h2>Carteira</h2><p class="muted">Criada em '+new Date(Bm.ts0).toLocaleDateString('pt-BR')+' com '+fmt2(Bm.start)+'.</p><div class="stack"><button class="btn center" data-act="b_exit_m">Voltar ao início</button><button class="btn center" data-act="b_reset">Zerar carteira e começar de novo</button><button class="btn primary center" data-act="close">Continuar</button></div>';
@@ -1820,11 +1839,150 @@ var PXM=["................","....HHHHHHHH....","...HHHHHHHHHH...","...HSSSSSSSSH
 var PXMP={H:'#d9d4cc',S:'#e8b48a',G:'#3b2414',E:'#3b2414',L:'#cfe6f2',M:'#a0522d',B:'#4f7cac',Y:'#e9a23b'};
 function pxSvg(map,pal,cls){var w=map[0].length,h='<svg class="pxi'+(cls?' '+cls:'')+'" viewBox="0 0 '+w+' '+map.length+'" aria-hidden="true">';map.forEach(function(r,y){for(var x=0;x<r.length;x++){var c=pal[r[x]];if(c)h+='<rect x="'+x+'" y="'+y+'" width="1" height="1" fill="'+c+'"/>';}});return h+'</svg>';}
 function pxMentor(cls){return pxSvg(PXM,PXMP,cls);}
+/* ---------- Viagem no tempo (simulação histórica com dados reais da B3) ---------- */
+var HKEY='vidagrana-hist',HBASE=IS_APP?'https://beloathaide-web.github.io/Vida-e-grana/historico/':'historico/',HEND=202512;
+var HD={years:{},ind:null,cum:null,busy:false,err:null},HS={y:2020,m:1,dur:12,ap:'1.000',ini:'0',cart:'equi',pick:[]};
+var HMOM=[{y:2008,m:6,dur:12,t:'2008 · crise global'},{y:2017,m:3,dur:6,t:'2017 · Joesley Day'},{y:2020,m:1,dur:12,t:'2020 · Covid'},{y:2022,m:7,dur:6,t:'2022 · eleições'}];
+var HCARTS={cons:{n:'🛟 Conservadora',d:'80% Tesouro Selic, 20% Ibovespa',w:{SELIC:.8,CESTA:.2}},equi:{n:'⚖️ Equilibrada',d:'50% Tesouro Selic, 50% Ibovespa',w:{SELIC:.5,CESTA:.5}},arro:{n:'🚀 Arrojada',d:'100% no Ibovespa',w:{CESTA:1}},mine:{n:'✍️ Montar a minha',d:'Escolha até 5 ativos, divididos em partes iguais',w:null}};
+var HNOTE={
+ 200809:{t:'Quebra do Lehman Brothers',news:'Em 15 de setembro de 2008, o banco americano Lehman Brothers pediu falência. A crise das hipotecas nos Estados Unidos virou uma crise financeira global.',why:'Com medo de calotes em cadeia, investidores do mundo todo venderam ações e correram para ativos seguros. Bolsas de países emergentes, como o Brasil, sofreram junto.'},
+ 200810:{t:'Pânico nas bolsas',news:'Em outubro de 2008, a bolsa brasileira chegou a interromper os negócios mais de uma vez pelo circuit breaker, o mecanismo que pausa o pregão em quedas muito fortes.',why:'Commodities despencaram e o dólar disparou. Exportadoras de minério e petróleo, que pesam muito na bolsa brasileira, caíram forte.'},
+ 200903:{t:'O fundo do poço e a virada',news:'Em março de 2009, governos e bancos centrais já tinham lançado pacotes trilionários de estímulo e cortado juros.',why:'Os preços estavam tão baixos que investidores voltaram a comprar. 2009 foi um dos melhores anos da bolsa brasileira: quem continuou aportando na crise comprou barato.'},
+ 201108:{t:'EUA perdem a nota máxima',news:'Em 5 de agosto de 2011, a agência S&P rebaixou a nota de crédito dos Estados Unidos, que perderam o AAA pela primeira vez.',why:'A dúvida sobre a dívida americana, somada à crise das dívidas na Europa, derrubou bolsas no mundo todo.'},
+ 201509:{t:'Brasil perde o grau de investimento',news:'Em 9 de setembro de 2015, a S&P tirou do Brasil o selo de bom pagador, o grau de investimento, em meio à recessão e à crise fiscal.',why:'Alguns fundos estrangeiros só podem investir em países com grau de investimento e precisaram vender. O dólar subiu e a bolsa caiu.'},
+ 201705:{t:'Joesley Day',news:'Na noite de 17 de maio de 2017, veio à tona a gravação de uma conversa do presidente Michel Temer com o empresário Joesley Batista, dono da JBS. No dia 18, que ficou conhecido como Joesley Day, a bolsa despencou e o circuit breaker foi acionado.',why:'O mercado temeu que a crise política travasse a reforma da Previdência. Num só dia, o pânico apagou meses de alta: uma lição sobre como a política mexe com a bolsa.'},
+ 201805:{t:'Greve dos caminhoneiros',news:'No fim de maio de 2018, uma greve de caminhoneiros parou estradas pelo país e causou falta de combustível e de alimentos.',why:'A paralisação afetou a economia e terminou com o governo baixando o preço do diesel, o que derrubou as ações da Petrobras.'},
+ 202003:{t:'Covid-19 derruba as bolsas',news:'Em 11 de março de 2020, a OMS declarou a pandemia de Covid-19. Ao longo do mês, o circuit breaker da bolsa brasileira foi acionado várias vezes.',why:'Com cidades parando, o mundo esperava uma recessão profunda. Foi uma das quedas mais rápidas da história. Quem vendeu no pânico transformou a queda em prejuízo de verdade.'},
+ 202011:{t:'Vacina à vista',news:'Em 9 de novembro de 2020, a Pfizer e a BioNTech anunciaram resultados positivos da vacina contra a Covid-19. No mesmo mês, Joe Biden venceu a eleição americana.',why:'A perspectiva de reabrir a economia trouxe de volta o apetite por risco, e o dinheiro estrangeiro voltou à bolsa brasileira. Quem aportou durante a queda colheu a recuperação.'},
+ 202210:{t:'Eleições presidenciais',news:'O primeiro turno foi em 2 de outubro de 2022 e o segundo, em 30 de outubro, com a vitória de Lula sobre Jair Bolsonaro.',why:'Em eleições, a bolsa reage às expectativas sobre gastos públicos e sobre estatais como Petrobras e Banco do Brasil. A incerteza aumenta a oscilação, para cima e para baixo.'}
+};
+function hAdd(ym,k){var y=Math.floor(ym/100),m=ym%100-1+k;y+=Math.floor(m/12);m=((m%12)+12)%12;return y*100+m+1;}
+function hLabel(ym){return MESES[ym%100-1]+'/'+Math.floor(ym/100);}
+function hNum(v){var n=parseFloat(String(v||'').replace(/[^\d,]/g,'').replace(',','.'));return isFinite(n)?n:0;}
+function hGet(){try{var r=localStorage.getItem(HKEY);return r?JSON.parse(r):null;}catch(e){return null;}}
+function hPut(H){try{if(H)localStorage.setItem(HKEY,JSON.stringify(H));else localStorage.removeItem(HKEY);}catch(e){}}
+function hFetch(f){return fetch(HBASE+f).then(function(r){if(!r.ok)throw new Error('http');return r.text();});}
+function hLoadInd(){if(HD.ind)return Promise.resolve();return hFetch('indicadores.csv').then(function(t){var o={};t.split(/\r?\n/).slice(1).forEach(function(l){var c=l.split(',');if(c.length>=3&&c[0])o[+c[0]]={ipca:+c[1]/100,selic:+c[2]/100};});
+ var ks=Object.keys(o).map(Number).sort(function(a,b){return a-b;}),acc=1,cum={};ks.forEach(function(k){acc*=1+o[k].ipca;cum[k]=acc;});HD.ind=o;HD.cum=cum;});}
+function hLoadYear(y){if(HD.years[y])return Promise.resolve();return hFetch(y+'.csv').then(function(t){var mon={};t.split(/\r?\n/).slice(1).forEach(function(l){var c=l.split(',');if(c.length<3||!c[0])return;var ym=+c[0].slice(0,6),M=mon[ym]||(mon[ym]={}),p=+c[2],e=M[c[1]];if(!e)M[c[1]]={f:p,l:p};else e.l=p;});HD.years[y]=mon;});}
+function hNeed(ym0,n){var ps=[hLoadInd()],y0=Math.floor(ym0/100),y1=Math.floor(hAdd(ym0,n-1)/100);for(var y=y0;y<=y1;y++)ps.push(hLoadYear(y));return Promise.all(ps);}
+function hMonth(ym){var Y=HD.years[Math.floor(ym/100)];return Y?Y[ym]:null;}
+function hToEra(v,ym){return v*HD.cum[ym]/HD.cum[HEND];}
+function hPoup(ym){var s=HD.ind[ym].selic;if(ym<201205)return .005;return Math.pow(1+s,12)-1>.085?.005:s*.7;}
+function hTickers(ym){var M=hMonth(ym);return M?Object.keys(M).sort():[];}
+function hBusy(p,then){HD.busy=true;HD.err=null;render();p.then(function(){HD.busy=false;if(then)then();render();},function(){HD.busy=false;HD.err='net';render();});}
+function hKeep(){var a=document.getElementById('hap'),b=document.getElementById('hini');if(a)HS.ap=a.value;if(b)HS.ini=b.value;}
+function hStart(){
+ var ap=hNum(document.getElementById('hap')&&document.getElementById('hap').value),ini=hNum(document.getElementById('hini')&&document.getElementById('hini').value);
+ HS.ap=String(ap);HS.ini=String(ini);
+ var ym0=HS.y*100+HS.m,maxN=0;while(hAdd(ym0,maxN)<=HEND)maxN++;var n=Math.min(HS.dur,maxN);
+ if(ap<=0&&ini<=0){toast('Informe um aporte mensal ou um valor inicial.');return;}
+ if(n<1){toast('Escolha um período até dezembro de 2025.');return;}
+ var w=HCARTS[HS.cart].w;
+ if(!w){if(!HS.pick.length){toast('Escolha pelo menos um ativo.');return;}w={};HS.pick.forEach(function(k){w[k]=1/HS.pick.length;});}
+ hBusy(hNeed(ym0,n),function(){hPut({ym0:ym0,n:n,i:0,ap:ap,ini:ini,cart:HS.cart,w:w,sh:{},cu:0,ci:100,rf:0,poup:0,inv:0,lastP:{},hist:[],seen:{}});});
+}
+function hStep(H){
+ var ym=hAdd(H.ym0,H.i),M=hMonth(ym),I=HD.ind[ym];if(!M||!I)return false;
+ var bp=function(t){return H.lastP[t]||(M[t]?M[t].f:0);},rs=[],k,t;
+ for(t in M){var b=bp(t);if(b>0&&!ETFS[t]&&!FIIS[t])rs.push({t:t,r:M[t].l/b-1});} // cesta = só ações de empresas
+ var rc=rs.length?rs.reduce(function(a,x){return a+x.r;},0)/rs.length:0;
+ var bb=bp('BOVA11');if(bb>0&&M.BOVA11)rc=M.BOVA11.l/bb-1; // a cesta segue o Ibovespa (BOVA11) quando ele existe
+ var v0=H.rf+H.cu*H.ci;for(t in H.sh)v0+=H.sh[t]*(bp(t)||H.lastP[t]||0);
+ var c=hToEra(H.ap,ym)+(H.i===0?hToEra(H.ini,ym):0);
+ for(k in H.w){var amt=c*H.w[k];if(k==='SELIC')H.rf+=amt;else if(k==='CESTA')H.cu+=amt/H.ci;else if(bp(k)>0)H.sh[k]=(H.sh[k]||0)+amt/bp(k);else H.rf+=amt;}
+ H.rf*=1+I.selic;H.ci*=1+rc;
+ for(t in M)H.lastP[t]=M[t].l;
+ var v1=H.rf+H.cu*H.ci;for(t in H.sh)v1+=H.sh[t]*(H.lastP[t]||0);
+ H.poup=(H.poup+c)*(1+hPoup(ym));H.inv+=c;
+ rs.sort(function(a,b){return b.r-a.r;});
+ H.hist.push({ym:ym,pat:v1,inv:H.inv,poup:H.poup,c:c,r:(v0+c)>0?(v1-v0-c)/(v0+c):0,rc:rc,sel:I.selic,ipca:I.ipca,up:rs.slice(0,2),dn:rs.slice(-2).reverse()});
+ H.i++;return true;
+}
+function hGo(n){var H=hGet();if(!H)return;var shown=null;
+ hBusy(hNeed(H.ym0,H.n),function(){var k=0;while(k<n&&H.i<H.n){if(!hStep(H))break;k++;var ym=H.hist[H.hist.length-1].ym;if(HNOTE[ym]&&!H.seen[ym]){H.seen[ym]=1;shown=ym;break;}}
+  hPut(H);if(shown)modalQ.push({type:'hnews',ym:shown});else if(H.i>=H.n)modalQ.push({type:'hend'});setTimeout(flush,0);});}
+function hChart(H){
+ var a=H.hist;if(a.length<2)return '<p class="muted sm" style="text-align:center">O gráfico aparece depois do segundo mês.</p>';
+ var w=320,h=110,mx=0;a.forEach(function(x){mx=Math.max(mx,x.pat,x.inv,x.poup);});mx=mx||1;
+ function line(key,col,dash){return '<polyline fill="none" stroke="'+col+'" stroke-width="2.5"'+(dash?' stroke-dasharray="5 4"':'')+' points="'+a.map(function(x,i){return (i/(a.length-1)*w).toFixed(1)+','+(h-4-x[key]/mx*(h-10)).toFixed(1);}).join(' ')+'"/>';}
+ return '<svg viewBox="0 0 '+w+' '+h+'" style="width:100%;height:110px" aria-label="Evolução do patrimônio">'+line('inv','var(--muted)',1)+line('poup','var(--gold)')+line('pat','var(--brand-hi)')+'</svg>'+
+  '<p class="sm" style="margin:2px 0 0"><span style="color:var(--brand-hi)">━</span> Seu patrimônio · <span style="color:var(--gold)">━</span> Poupança · <span class="muted">┄ Aportado</span></p>';
+}
+function hWName(k){return k==='SELIC'?'Tesouro Selic':k==='CESTA'?'Ibovespa':k;}
+function histScreen(){
+ var h='';
+ if(!useSB())return '<div class="hero" style="padding-bottom:28px"><h1 style="font-size:40px">⏳ Viagem<br><em>no tempo</em></h1><p>Simule a bolsa de verdade em qualquer período de 2008 a 2025.</p></div><div class="diffs"><div class="card"><h3>Disponível no site e no app</h3><p class="muted">Este modo usa as cotações históricas da B3, que ficam no site do jogo.</p><p><a href="https://beloathaide-web.github.io/Vida-e-grana/" target="_blank" rel="noopener" style="color:inherit">Abrir o site do jogo</a></p></div><button class="btn center" data-act="b_exit">Voltar</button></div>';
+ var H=hGet();
+ if(HD.err)h+='<div class="warn" style="margin:12px 14px 0">Não deu para carregar os dados históricos. Confira a internet. <button class="chip" data-act="h_retry">Tentar de novo</button></div>';
+ if(!H){
+  var ym0=HS.y*100+HS.m,yrs='',ms='';for(var y=2008;y<=2025;y++)yrs+='<option value="'+y+'"'+(y===HS.y?' selected':'')+'>'+y+'</option>';
+  for(var m=1;m<=12;m++)ms+='<option value="'+m+'"'+(m===HS.m?' selected':'')+'>'+MESES[m-1]+'</option>';
+  h+='<div class="hero" style="padding-bottom:26px"><h1 style="font-size:40px">⏳ Viagem<br><em>no tempo</em></h1><p>Invista com os preços reais da B3 em qualquer período de 2008 a 2025 e veja o que teria acontecido.</p></div><div class="diffs">';
+  h+='<div class="card"><h3>Momentos famosos</h3><div class="chips">'+HMOM.map(function(o,i){return '<button class="chip'+(HS.y===o.y&&HS.m===o.m&&HS.dur===o.dur?' on':'')+'" data-act="h_mom" data-i="'+i+'">'+o.t+'</button>';}).join('')+'</div></div>';
+  h+='<div class="card"><h3>Período</h3><div class="grid2"><div class="field"><label for="hm">Mês</label><select id="hm" class="input" data-act="h_sel">'+ms+'</select></div><div class="field"><label for="hy">Ano</label><select id="hy" class="input" data-act="h_sel">'+yrs+'</select></div></div>'+
+   '<div class="lbl"><span>Duração</span></div><div class="chips">'+[6,12,24,36,60].map(function(d){return '<button class="chip'+(HS.dur===d?' on':'')+'" data-act="h_dur" data-d="'+d+'">'+(d<12?d+' meses':d/12+(d===12?' ano':' anos'))+'</button>';}).join('')+'</div></div>';
+  h+='<div class="card"><h3>Seu dinheiro</h3><div class="field"><label for="hap">Quanto você aporta por mês</label><input id="hap" class="input" inputmode="numeric" value="'+esc(HS.ap)+'"></div>'+
+   '<div class="field" style="margin-top:8px"><label for="hini">Quanto você já tinha para investir no início</label><input id="hini" class="input" inputmode="numeric" value="'+esc(HS.ini)+'"></div>'+
+   '<p class="muted sm" style="margin:8px 0 0">Valores em reais de hoje. O jogo ajusta pela inflação para a época do período, e o aporte acompanha a inflação mês a mês.</p></div>';
+  h+='<div class="card"><h3>Carteira</h3><div class="stack" style="margin-top:4px">'+Object.keys(HCARTS).map(function(k){var C=HCARTS[k];return '<button class="prow'+(HS.cart===k?' on':'')+'" style="'+(HS.cart===k?'outline:3px solid var(--brand-hi)':'')+'" data-act="h_cart" data-k="'+k+'"><span><b>'+C.n+'</b><small>'+C.d+'</small></span></button>';}).join('')+'</div>';
+  if(HS.cart==='mine'){
+   if(!HD.years[HS.y]){h+='<p class="muted sm">Carregando os ativos de '+HS.y+'…</p>';if(!HD.busy)setTimeout(function(){hBusy(hLoadYear(HS.y));},0);}
+   else{var av=hTickers(ym0);if(!av.length){var Y=HD.years[HS.y],ks=Object.keys(Y).sort();av=ks.length?Object.keys(Y[ks[0]]).sort():[];}
+    h+='<div class="lbl"><span>Escolha até 5 ('+HS.pick.length+'/5)</span></div><div class="chips">'+['SELIC'].concat(av).map(function(t){var on=HS.pick.indexOf(t)>=0;return '<button class="chip'+(on?' on':'')+'" data-act="h_pick" data-t="'+t+'">'+(t==='SELIC'?'Tesouro Selic':t)+'</button>';}).join('')+'</div>'+
+     '<p class="muted sm">Só aparecem os ativos que já existiam em '+HS.y+'.</p>';}
+  }
+  h+='</div><button class="btn gold center" style="padding:15px;font-size:17px" data-act="h_start"'+(HD.busy?' disabled':'')+'>'+(HD.busy?'Carregando dados…':'⏳ Viajar no tempo')+'</button><button class="btn center" data-act="b_exit">Voltar</button></div>'+
+   '<p class="small-print">Preços de fechamento reais da B3 (série histórica, sem ajuste por dividendos). Inflação e Selic do Banco Central. Valores brutos, sem imposto. Nada aqui é recomendação de investimento.</p>';
+  return h;
+ }
+ var last=H.hist[H.hist.length-1],pat=last?last.pat:0,inv=last?last.inv:0,poup=last?last.poup:0,nextYm=hAdd(H.ym0,H.i),done=H.i>=H.n;
+ h+='<header class="bq-hero"><div class="top-row"><span>⏳ '+hLabel(H.ym0)+' → '+hLabel(hAdd(H.ym0,H.n-1))+'</span><button class="icon" data-act="h_menu" aria-label="Menu">⋯</button></div>'+
+  '<div class="sm" style="opacity:.8;margin-top:6px">'+(last?'Patrimônio em '+hLabel(last.ym):'Antes do primeiro mês')+'</div><div class="big">'+fmt(pat)+'</div>'+
+  '<div class="row"><div>Aportado<b>'+fmtS(inv)+'</b></div><div>Resultado<b>'+(inv>0?pct(pat/inv-1):'—')+'</b></div><div>Na poupança<b>'+fmtS(poup)+'</b></div></div></header><main style="padding-bottom:110px">';
+ if(HD.busy)h+='<p class="muted sm" style="text-align:center">Carregando…</p>';
+ h+='<div class="card">'+hChart(H)+'</div>';
+ h+='<div class="card"><div class="kv"><span>Aporte mensal (hoje)</span><b>'+fmt(H.ap)+'</b></div>'+(done?'':'<div class="kv"><span>Em '+hLabel(nextYm)+' equivale a</span><b>'+(HD.cum?fmt(hToEra(H.ap,nextYm)):'…')+'</b></div>')+
+  '<div class="kv"><span>Carteira</span><b>'+Object.keys(H.w).map(function(k){return Math.round(H.w[k]*100)+'% '+hWName(k);}).join(' · ')+'</b></div>'+
+  (done?'':'<button class="btn center sm" style="width:100%;margin-top:8px" data-act="h_ap">✏️ Mudar o aporte</button>')+'</div>';
+ if(H.hist.length){h+='<div class="lbl"><span>Mês a mês · toque para entender</span></div>';
+  H.hist.slice().reverse().forEach(function(x){var n=HNOTE[x.ym];
+   h+='<button class="bq-row" data-act="h_expl" data-ym="'+x.ym+'"><span class="tk" style="min-width:76px">'+(n?'⭐ ':'')+hLabel(x.ym)+'</span><span class="nm">'+(n?n.t:'Bolsa '+pct(x.rc))+'</span><span class="px"><span class="'+(x.r>=0?'up':'dn')+'">'+pct(x.r)+'</span><small class="muted">sua carteira</small></span></button>';});}
+ else h+='<div class="card"><p>Tudo pronto. Toque em <b>Próximo mês</b> para começar em '+hLabel(H.ym0)+'.</p><p class="muted sm">Os meses com ⭐ têm a notícia da época.</p></div>';
+ h+='</main><footer class="bar-bottom"><div class="advance" style="grid-template-columns:1.4fr 1fr">'+(done?'<button class="btn primary center" data-act="h_end">Ver resultado</button><button class="btn center" data-act="h_new">Novo período</button>':
+  '<button class="btn primary center" data-act="h_go" data-n="1"'+(HD.busy?' disabled':'')+'>Próximo mês ▶</button><button class="btn center" data-act="h_go" data-n="6"'+(HD.busy?' disabled':'')+'>+6 meses</button>')+'</div></footer>';
+ return h;
+}
+function hExplHTML(ym){
+ var H=hGet(),x=null;H.hist.forEach(function(e){if(e.ym===ym)x=e;});if(!x)return '';
+ var n=HNOTE[ym],h='<p class="muted sm">'+hLabel(ym)+'</p><h2>'+(n?n.t:(x.rc>=0?'A bolsa subiu':'A bolsa caiu'))+'</h2>';
+ h+='<div class="flow"><div><span>Sua carteira</span><b class="'+(x.r>=0?'up':'dn')+'">'+pct(x.r)+'</b></div><div><span>Bolsa (Ibovespa)</span><b class="'+(x.rc>=0?'up':'dn')+'">'+pct(x.rc)+'</b></div><div><span>Tesouro Selic</span><b class="up">'+pct(x.sel)+'</b></div></div>';
+ if(n)h+='<div class="ex"><b>📰 No noticiário</b><p>'+n.news+'</p></div><p><b>Por que mexeu na bolsa?</b> '+n.why+'</p>';
+ else{var a=Math.abs(x.rc),tone=x.rc<=-.08?'Foi um mês de queda forte para a bolsa.':x.rc<=-.02?'Foi um mês negativo para a bolsa.':x.rc<.02?'A bolsa ficou praticamente de lado.':x.rc<.08?'Foi um mês positivo para a bolsa.':'Foi um mês de alta forte para a bolsa.';
+  h+='<p>'+tone+' O Ibovespa variou '+pct(x.rc)+' no mês.</p>';}
+ var mv=function(arr){return arr.map(function(m){return '<b>'+m.t+'</b> '+(BSEC[m.t]?'('+BSEC[m.t]+') ':'')+'<span class="'+(m.r>=0?'up':'dn')+'">'+pct(m.r)+'</span>';}).join(' e ');};
+ if(x.up.length)h+='<p>'+(x.up[0].r>=0?'📈 Maiores altas: ':'🛡️ Quem caiu menos: ')+mv(x.up)+'.<br>'+(x.dn[0].r<0?'📉 Maiores quedas: ':'🐢 Quem subiu menos: ')+mv(x.dn)+'.</p>';
+ h+='<p class="muted sm">Inflação no mês: '+pct(x.ipca)+'. Você aportou '+fmt(x.c)+' em valores da época.'+(n?'':' Este mês não tem um evento marcante registrado no jogo; o resumo vem dos próprios preços.')+'</p>';
+ return h+'<div class="stack"><button class="btn primary center" data-act="close">Entendi</button></div>';
+}
+function hEndHTML(){
+ var H=hGet(),L=H.hist[H.hist.length-1];if(!L)return '';
+ var corr=0;H.hist.forEach(function(x){corr+=x.c*HD.cum[L.ym]/HD.cum[x.ym];});
+ var ganho=L.pat-L.inv,minRc=Math.min.apply(null,H.hist.map(function(x){return x.rc;})),h='';
+ h='<div class="em">'+(L.pat>=L.poup?'🏆':'📘')+'</div><h2>'+hLabel(H.ym0)+' a '+hLabel(L.ym)+'</h2><div class="card" style="margin:10px 0 0">'+
+  kvr('Patrimônio final',fmt(L.pat))+kvr('Total aportado',fmt(L.inv))+kvr('Ganho',fmt(ganho),ganho>=0?'up':'dn')+
+  kvr('Se fosse tudo na poupança',fmt(L.poup))+kvr('Só para empatar com a inflação',fmt(corr))+'</div>';
+ h+='<p>'+(L.pat>=L.poup?'Sua carteira venceu a poupança em '+fmt(L.pat-L.poup)+'.':'Neste período, a poupança rendeu mais que a sua carteira: em prazos curtos, ações podem perder para a renda fixa.')+' '+(L.pat>=corr?'E o seu dinheiro ganhou da inflação.':'Mas o seu dinheiro perdeu poder de compra para a inflação.')+'</p>';
+ if(minRc<=-.08)h+='<p class="muted sm">Você atravessou pelo menos um mês de queda forte e continuou aportando. Na vida real, é aí que muita gente vende no pânico.</p>';
+ h+='<p class="muted sm">Valores em reais da época, brutos, sem imposto. Poupança aproximada, sem a TR.</p>';
+ return h+'<div class="stack"><button class="btn gold center" data-act="h_new">Simular outro período</button><button class="btn center" data-act="close">Voltar ao gráfico</button></div>';
+}
 function startScreen(){
  var saved=load(),h='<div class="hero">'+pxMentor('pxhero')+'<h1>Vida<br>&amp; <em>Grana</em></h1><p>Chegue a R$ 1 milhão o mais rápido que conseguir.</p></div><div class="diffs">';
  if(saved&&!saved.over)h+='<button class="diff" data-act="continue" style="border:2px solid var(--brand)"><div class="e">▶️</div><div><b>Continuar'+(saved.nick?': '+esc(saved.nick):'')+'</b><span>'+DIFFS[saved.key].n+' · '+((saved.startAge||START_AGE)+Math.floor(saved.month/12))+' anos</span></div></button>';
  h+='<button class="btn gold center" style="padding:16px;font-size:18px" data-act="newrun">Novo jogo</button>';
  h+='<button class="diff cta" data-act="bolsa"><span class="badge">NOVO</span><div class="e">📡</div><div><b>Bolsa de verdade</b><span>Simulador de carteira: ações reais da B3, dinheiro de mentira'+(useSB()?'':' · só no app')+'</span></div></button>';
+ h+='<button class="diff" data-act="hist"><div class="e">⏳</div><div><b>Viagem no tempo</b><span>Invista com preços reais da B3 em qualquer período de 2008 a 2025'+(useSB()?'':' · no site e no app')+'</span></div></button>';
  h+='<div class="grid2"><button class="btn center" data-act="rank_start">🏆 Ranking</button><button class="btn center" data-act="howto">💡 Como jogar</button></div>';
  if(!IS_APP)h+=(PLAY_URL?'<a class="btn center" style="display:block;text-decoration:none" href="'+PLAY_URL+'" target="_blank" rel="noopener">📲 Baixar na Play Store</a>':'<div class="btn center" style="opacity:.6;cursor:default">📲 Baixar o app · em breve</div>');
  
@@ -1931,7 +2089,7 @@ function viewLearn(){
 }
 function render(){
  if(!S){
-  $app.innerHTML=startView==='bolsa'?bolsaScreen():startView==='rank'?rankStandalone():startView==='real'?realScreen():startView==='intro'?introScreen():startView==='mode'?modeScreen():startView==='nick'?nickScreen():startScreen();
+  $app.innerHTML=startView==='hist'?histScreen():startView==='bolsa'?bolsaScreen():startView==='rank'?rankStandalone():startView==='real'?realScreen():startView==='intro'?introScreen():startView==='mode'?modeScreen():startView==='nick'?nickScreen():startScreen();
   if(startView==='intro'){var tr=document.getElementById('obt');if(tr&&tr.addEventListener)tr.addEventListener('scroll',obSync,{passive:true});}
   if(startView==='nick'){var ni=document.getElementById('nick0');if(ni&&ni.addEventListener)ni.addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();obStart();}});}
   return;
@@ -1957,7 +2115,7 @@ document.addEventListener('click',function(e){
 /* botão voltar do Android (app) */
 window.__vgBack=function(){
  if(cur&&cur.type==='bills'){S.auto=0;closeModal();return 'ok';}
- var closable=['btrade','bmenu','move','course','debts','reneg','ainfo','contracts','shop','homes','house','prop','amort','asset','lessonv','trade','phone','study','menu','newsbrief','newsdeep','lesson','info','story'];
+ var closable=['hexpl','hend','hnews','hap','hmenu','btrade','bmenu','move','course','debts','reneg','ainfo','contracts','shop','homes','house','prop','amort','asset','lessonv','trade','phone','study','menu','newsbrief','newsdeep','lesson','info','story'];
  if(cur){
   if(cur.type==='submit'){if(!cur.busy)closeSubmit();return 'ok';}
   if(closable.indexOf(cur.type)>=0){if(cur.prev){cur=cur.prev;drawModal();}else closeModal();}
@@ -1970,6 +2128,7 @@ window.__vgBack=function(){
 function fitScreen(){try{var touch=IS_APP||(window.matchMedia&&matchMedia('(pointer: coarse)').matches),w=window.innerWidth||0,z=touch&&w>=680?Math.min(1.8,w/540):1;document.documentElement.style.zoom=z>1.01?z.toFixed(3):'';}catch(e){}}
 fitScreen();try{window.addEventListener('resize',fitScreen);}catch(e){}
 try{if(!localStorage.getItem(INTRO)){var sv0=load();if(!sv0||sv0.over)startView='intro';}}catch(e){}
+try{document.addEventListener('change',function(e){var t=e.target;if(t&&(t.id==='hy'||t.id==='hm')){hKeep();HS.y=+document.getElementById('hy').value;HS.m=+document.getElementById('hm').value;HS.pick=[];render();}});}catch(e){}
 render();
 if(typeof window!=='undefined'&&window.__TEST__){window.__TEST__={cur:function(){return cur;},newGame:newGame,tick:tick,S:function(){return S;},modalQ:function(){return modalQ;},act:act,pv:pv,goal:goal,render:render};}
 })();
