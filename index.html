@@ -1015,7 +1015,12 @@ function act(a,d,inModal){
   case 'real':startView='real';render();window.scrollTo(0,0);break;
   case 'bolsa_game':save();S=null;cur=null;modalQ=[];$ov.hidden=true;$ov.innerHTML='';tab='home';startView='bolsa';bTab=bLoad()?'port':'mkt';render();window.scrollTo(0,0);break;
   case 'bolsa':startView='bolsa';bTab=bLoad()?'port':bTab;render();window.scrollTo(0,0);break;
-  case 'hist':startView='hist';HD.err=null;render();window.scrollTo(0,0);break;
+  case 'view':try{localStorage.setItem(VIEWK,localStorage.getItem(VIEWK)===d.v?'auto':d.v);}catch(e){}fitScreen();render();break;
+  case 'renda':startView='renda';HD.err=null;render();window.scrollTo(0,0);break;
+  case 'r_f':var rg0=document.getElementById('rg');if(rg0)RS.g=rg0.value;RS.f=+d.v;render();break;
+  case 'r_q':var rg1=document.getElementById('rg');if(rg1)RS.g=rg1.value;RS.y1=Math.floor(HEND/100);RS.y0=RS.y1-(+d.n)+1;render();break;
+  case 'r_calc':rStart();break;
+  case 'hist':startView='hist';HD.err=null;if(useSB()&&!HD.ind)hBusy(hLoadInd());else render();window.scrollTo(0,0);break;
   case 'h_mom':var mo=HMOM[+d.i];HS.y=mo.y;HS.m=mo.m;HS.dur=mo.dur;render();break;
   case 'h_dur':HS.dur=+d.d;hKeep();render();break;
   case 'h_start':hStart();break;
@@ -1848,6 +1853,7 @@ function pxSvg(map,pal,cls){var w=map[0].length,h='<svg class="pxi'+(cls?' '+cls
 function pxMentor(cls){return pxSvg(PXM,PXMP,cls);}
 /* ---------- Viagem no tempo (simulação histórica com dados reais da B3) ---------- */
 var HKEY='vidagrana-hist',HBASE=IS_APP?'https://beloathaide-web.github.io/Vida-e-grana/historico/':'historico/',HEND=202512;
+function hInd(ym){var I=HD.ind&&HD.ind[ym];if(I)return I;var ks=HD.indKeys,l=HD.ind[ks[ks.length-1]];return {ipca:0,selic:l.selic,cdi:l.cdi,est:1};}
 var HD={years:{},ind:null,cum:null,busy:false,err:null},HS={y:2020,m:1,dur:12,ap:'1.000',ini:'0'};
 var HMOM=[{y:2008,m:6,dur:12,t:'2008 · crise global'},{y:2017,m:3,dur:6,t:'2017 · Joesley Day'},{y:2020,m:1,dur:12,t:'2020 · Covid'},{y:2022,m:7,dur:6,t:'2022 · eleições'}];
 var HNOTE={
@@ -1860,6 +1866,7 @@ var HNOTE={
  201805:{t:'Greve dos caminhoneiros',news:'No fim de maio de 2018, uma greve de caminhoneiros parou estradas pelo país e causou falta de combustível e de alimentos.',why:'A paralisação afetou a economia e terminou com o governo baixando o preço do diesel, o que derrubou as ações da Petrobras.'},
  202003:{t:'Covid-19 derruba as bolsas',news:'Em 11 de março de 2020, a OMS declarou a pandemia de Covid-19. Ao longo do mês, o circuit breaker da bolsa brasileira foi acionado várias vezes.',why:'Com cidades parando, o mundo esperava uma recessão profunda. Foi uma das quedas mais rápidas da história. Quem vendeu no pânico transformou a queda em prejuízo de verdade.'},
  202011:{t:'Vacina à vista',news:'Em 9 de novembro de 2020, a Pfizer e a BioNTech anunciaram resultados positivos da vacina contra a Covid-19. No mesmo mês, Joe Biden venceu a eleição americana.',why:'A perspectiva de reabrir a economia trouxe de volta o apetite por risco, e o dinheiro estrangeiro voltou à bolsa brasileira. Quem aportou durante a queda colheu a recuperação.'},
+ 202610:{t:'Eleições de 2026 e a liquidação na bolsa',news:'No segundo turno, em 25 de outubro de 2026, Lula foi reeleito contra Flávio Bolsonaro. No dia seguinte, oito ações do Ibovespa caíram mais de 40% num único pregão, e o índice fechou outubro com queda de quase 10%.',why:'Nas semanas anteriores, parte do mercado tinha apostado na vitória da oposição, vista por esses investidores como mais favorável ao ajuste das contas públicas, e as ações mais sensíveis a juros dispararam. Com o resultado, essas ações devolveram os ganhos de uma vez. Uma lição sobre o risco de apostar todas as fichas num único cenário.'},
  202210:{t:'Eleições presidenciais',news:'O primeiro turno foi em 2 de outubro de 2022 e o segundo, em 30 de outubro, com a vitória de Lula sobre Jair Bolsonaro.',why:'Em eleições, a bolsa reage às expectativas sobre gastos públicos e sobre estatais como Petrobras e Banco do Brasil. A incerteza aumenta a oscilação, para cima e para baixo.'}
 };
 function hAdd(ym,k){var y=Math.floor(ym/100),m=ym%100-1+k;y+=Math.floor(m/12);m=((m%12)+12)%12;return y*100+m+1;}
@@ -1868,20 +1875,23 @@ function hNum(v){var n=parseFloat(String(v||'').replace(/[^\d,]/g,'').replace(',
 function hGet(){try{var r=localStorage.getItem(HKEY);return r?JSON.parse(r):null;}catch(e){return null;}}
 function hPut(H){try{if(H)localStorage.setItem(HKEY,JSON.stringify(H));else localStorage.removeItem(HKEY);}catch(e){}}
 function hFetch(f){return fetch(HBASE+f).then(function(r){if(!r.ok)throw new Error('http');return r.text();});}
-function hLoadInd(){if(HD.ind)return Promise.resolve();return hFetch('indicadores.csv').then(function(t){var o={};t.split(/\r?\n/).slice(1).forEach(function(l){var c=l.split(',');if(c.length>=3&&c[0])o[+c[0]]={ipca:+c[1]/100,selic:+c[2]/100};});
- var ks=Object.keys(o).map(Number).sort(function(a,b){return a-b;}),acc=1,cum={};ks.forEach(function(k){acc*=1+o[k].ipca;cum[k]=acc;});HD.ind=o;HD.cum=cum;});}
+function hLoadInd(){if(HD.ind)return Promise.resolve();return Promise.all([hFetch('indicadores.csv'),hFetch('meta.json').catch(function(){return '';})]).then(function(r){var o={};r[0].split(/\r?\n/).slice(1).forEach(function(l){var c=l.split(',');if(c.length>=3&&c[0])o[+c[0]]={ipca:+c[1]/100,selic:+c[2]/100,cdi:c[3]?+c[3]/100:+c[2]/100};});
+ var ks=Object.keys(o).map(Number).sort(function(a,b){return a-b;}),acc=1,cum={};ks.forEach(function(k){acc*=1+o[k].ipca;cum[k]=acc;});
+ var meta={};try{meta=JSON.parse(r[1]||'{}');}catch(e){}HEND=meta.fim||ks[ks.length-1];
+ for(var ym=hAdd(ks[ks.length-1],1);ym<=HEND;ym=hAdd(ym,1))cum[ym]=acc;
+ HD.ind=o;HD.indKeys=ks;HD.cum=cum;if(HS.y>Math.floor(HEND/100))HS.y=Math.floor(HEND/100);});}
 function hLoadYear(y){if(HD.years[y])return Promise.resolve();return hFetch(y+'.csv').then(function(t){var mon={};t.split(/\r?\n/).slice(1).forEach(function(l){var c=l.split(',');if(c.length<3||!c[0])return;var ym=+c[0].slice(0,6),M=mon[ym]||(mon[ym]={}),p=+c[2],e=M[c[1]];if(!e)M[c[1]]={f:p,l:p};else e.l=p;});HD.years[y]=mon;});}
 function hNeed(ym0,n){var ps=[hLoadInd()],y0=Math.floor(ym0/100),y1=Math.floor(hAdd(ym0,n-1)/100);for(var y=y0;y<=y1;y++)ps.push(hLoadYear(y));return Promise.all(ps);}
 function hMonth(ym){var Y=HD.years[Math.floor(ym/100)];return Y?Y[ym]:null;}
 function hToEra(v,ym){return v*HD.cum[ym]/HD.cum[HEND];}
-function hPoup(ym){var s=HD.ind[ym].selic;if(ym<201205)return .005;return Math.pow(1+s,12)-1>.085?.005:s*.7;}
+function hPoup(ym){var s=hInd(ym).selic;if(ym<201205)return .005;return Math.pow(1+s,12)-1>.085?.005:s*.7;}
 function hTickers(ym){var M=hMonth(ym);return M?Object.keys(M).sort():[];}
 function hBusy(p,then){HD.busy=true;HD.err=null;render();p.then(function(){HD.busy=false;if(then)then();render();},function(){HD.busy=false;HD.err='net';render();});}
 function hKeep(){var a=document.getElementById('hap'),b=document.getElementById('hini');if(a)HS.ap=a.value;if(b)HS.ini=b.value;}
 var hTab='port',hCat='';
 function hVal(H){var v=H.cash;for(var t in H.pos)v+=H.pos[t].q*(H.px[t]||0);return v;}
-function hName(t){return t==='SELIC'?'Tesouro Selic':t;}
-function hSec(t){return t==='SELIC'?'Renda fixa':(BSEC[t]||'');}
+function hName(t){return t==='SELIC'?'Tesouro Selic':t==='CDB'?'CDB 105% CDI':t;}
+function hSec(t){return t==='SELIC'||t==='CDB'?'Renda fixa':(BSEC[t]||'');}
 function hOpen(H,ym){var M=hMonth(ym);if(!M)return;for(var t in M)if(!H.px[t]){H.px[t]=M[t].f;H.prev[t]=M[t].f;}}
 function hDeposit(H,ym,extra){var c=hToEra(H.ap,ym)+(extra||0);H.cash+=c;H.inv+=c;H.poup+=c;H.ibov+=c;H.dep.push(c);}
 function hStart(){
@@ -1889,21 +1899,22 @@ function hStart(){
  HS.ap=String(ap);HS.ini=String(ini);
  var ym0=HS.y*100+HS.m,maxN=0;while(hAdd(ym0,maxN)<=HEND)maxN++;var n=Math.min(HS.dur,maxN);
  if(ap<=0&&ini<=0){toast('Informe um aporte mensal ou um valor inicial.');return;}
- if(n<1){toast('Escolha um período até dezembro de 2025.');return;}
+ if(n<1){toast('Escolha um período até '+hLabel(HEND)+'.');return;}
  hBusy(hNeed(ym0,n),function(){
-  var H={v:2,ym0:ym0,n:n,i:0,ap:ap,ini:ini,cash:0,inv:0,poup:0,ibov:0,dep:[],pos:{},px:{SELIC:1000},prev:{SELIC:1000},sold:{},taxes:0,trades:[],hist:[],seen:{}};
+  var H={v:2,ym0:ym0,n:n,i:0,ap:ap,ini:ini,cash:0,inv:0,poup:0,ibov:0,dep:[],pos:{},px:{SELIC:1000,CDB:1000},prev:{SELIC:1000,CDB:1000},sold:{},taxes:0,trades:[],hist:[],seen:{}};
   hOpen(H,ym0);hDeposit(H,ym0,hToEra(ini,ym0));hPut(H);hTab='mkt';
  });
 }
 function hStep(H){
- var ym=hAdd(H.ym0,H.i),M=hMonth(ym),I=HD.ind[ym];if(!M||!I)return false;
+ var ym=hAdd(H.ym0,H.i),M=hMonth(ym),I=hInd(ym);if(!M||!I)return false;
+ if(!H.px.CDB){H.px.CDB=1000;H.prev.CDB=1000;}
  var v0=hVal(H),rs=[],t;
  for(t in M){var b=H.px[t]||M[t].f;if(b>0&&!ETFS[t]&&!FIIS[t])rs.push({t:t,r:M[t].l/b-1});}
  var rc=rs.length?rs.reduce(function(s,x){return s+x.r;},0)/rs.length:0;
  if(M.BOVA11&&(H.px.BOVA11||M.BOVA11.f)>0)rc=M.BOVA11.l/(H.px.BOVA11||M.BOVA11.f)-1;
  for(t in H.px)H.prev[t]=H.px[t];
  for(t in M)H.px[t]=M[t].l;
- H.px.SELIC*=1+I.selic;
+ H.px.SELIC*=1+I.selic;H.px.CDB*=1+I.cdi*1.05;
  var v1=hVal(H);
  H.poup*=1+hPoup(ym);H.ibov*=1+rc;
  rs.sort(function(x,y){return y.r-x.r;});
@@ -1924,9 +1935,9 @@ function hChart(H){
   '<p class="sm" style="margin:2px 0 0"><span style="color:var(--brand-hi)">━</span> Você · <span style="color:#4f7cac">━</span> Ibovespa · <span style="color:var(--gold)">━</span> Poupança · <span class="muted">┄ Aportado</span></p>';
 }
 function hSetupHTML(){
- var h='',yrs='',ms='';for(var y=2008;y<=2025;y++)yrs+='<option value="'+y+'"'+(y===HS.y?' selected':'')+'>'+y+'</option>';
+ var h='',yrs='',ms='';for(var y=2008;y<=Math.floor(HEND/100);y++)yrs+='<option value="'+y+'"'+(y===HS.y?' selected':'')+'>'+y+'</option>';
  for(var m=1;m<=12;m++)ms+='<option value="'+m+'"'+(m===HS.m?' selected':'')+'>'+MESES[m-1]+'</option>';
- h+='<div class="hero" style="padding-bottom:26px"><h1 style="font-size:40px">⏳ Viagem<br><em>no tempo</em></h1><p>A bolsa de verdade, com os preços reais da B3, em qualquer período de 2008 a 2025. Compre e venda o que quiser e avance mês a mês.</p></div><div class="diffs">';
+ h+='<div class="hero" style="padding-bottom:26px"><h1 style="font-size:40px">⏳ Viagem<br><em>no tempo</em></h1><p>A bolsa de verdade, com os preços reais da B3, em qualquer período de 2008 até hoje. Compre e venda o que quiser e avance mês a mês.</p></div><div class="diffs">';
  h+='<div class="card"><h3>Momentos famosos</h3><div class="chips">'+HMOM.map(function(o,i){return '<button class="chip'+(HS.y===o.y&&HS.m===o.m&&HS.dur===o.dur?' on':'')+'" data-act="h_mom" data-i="'+i+'">'+o.t+'</button>';}).join('')+'</div></div>';
  h+='<div class="card"><h3>Período</h3><div class="grid2"><div class="field"><label for="hm">Mês</label><select id="hm" class="input">'+ms+'</select></div><div class="field"><label for="hy">Ano</label><select id="hy" class="input">'+yrs+'</select></div></div>'+
   '<div class="lbl"><span>Duração</span></div><div class="chips">'+[6,12,24,36,60].map(function(d){return '<button class="chip'+(HS.dur===d?' on':'')+'" data-act="h_dur" data-d="'+d+'">'+(d<12?d+' meses':d/12+(d===12?' ano':' anos'))+'</button>';}).join('')+'</div></div>';
@@ -1934,7 +1945,7 @@ function hSetupHTML(){
   '<div class="field" style="margin-top:8px"><label for="hini">Quanto você já tinha no início</label><input id="hini" class="input" inputmode="numeric" value="'+esc(HS.ini)+'"></div>'+
   '<p class="muted sm" style="margin:8px 0 0">Valores em reais de hoje. O jogo ajusta pela inflação para a época do período, e o aporte acompanha a inflação mês a mês.</p></div>';
  h+='<button class="btn gold center" style="padding:15px;font-size:17px" data-act="h_start"'+(HD.busy?' disabled':'')+'>'+(HD.busy?'Carregando dados…':'⏳ Viajar no tempo')+'</button><button class="btn center" data-act="b_exit">Voltar</button></div>'+
-  '<p class="small-print">Preços de fechamento reais da B3 (série histórica, sem ajuste por dividendos). Inflação e Selic do Banco Central. Nada aqui é recomendação de investimento.</p>';
+  '<p class="small-print">Preços reais de fechamento, ajustados por desdobramentos e dividendos (Yahoo Finance, conferidos com a série oficial da B3). Inflação, Selic e CDI do Banco Central. Nada aqui é recomendação de investimento.</p>';
  return h;
 }
 function histScreen(){
@@ -1958,10 +1969,11 @@ function histScreen(){
   h+='<div class="card"><div class="kv"><span>Total aportado</span><b>'+fmt(H.inv)+'</b></div><div class="kv"><span>Aporte mensal (hoje)</span><b>'+fmt(H.ap)+'</b></div>'+(done?'':'<div class="kv"><span>Em '+hLabel(now)+' equivale a</span><b>'+fmt(hToEra(H.ap,now))+'</b></div>')+
    (H.taxes>0?'<div class="kv"><span>Imposto pago</span><b>'+fmt2(H.taxes)+'</b></div>':'')+(done?'':'<button class="btn center sm" style="width:100%;margin-top:8px" data-act="h_ap">✏️ Mudar o aporte</button>')+'</div>';
  }else if(hTab==='mkt'){
-  var list=['SELIC'].concat(Object.keys(H.px).filter(function(t){return t!=='SELIC';}).sort()),cats=[''];
+  if(!H.px.CDB){H.px.CDB=1000;H.prev.CDB=1000;}
+  var list=['SELIC','CDB'].concat(Object.keys(H.px).filter(function(t){return t!=='SELIC'&&t!=='CDB';}).sort()),cats=[''];
   list.forEach(function(t){var c=hSec(t);if(c&&cats.indexOf(c)<0)cats.push(c);});
   h+='<div class="chips" style="flex-wrap:nowrap;overflow-x:auto;padding-bottom:6px;margin-bottom:6px">'+cats.map(function(c){return '<button class="chip '+(hCat===c?'on':'')+'" style="white-space:nowrap" data-act="h_cat" data-c="'+c+'">'+(c||'Todos')+'</button>';}).join('')+'</div>';
-  h+='<p class="muted sm" style="margin:0 0 8px">'+(H.i===0?'Preços do início de '+hLabel(now)+'.':'Variação do último mês, de '+hLabel(hAdd(H.ym0,H.i-1))+'.')+' '+(list.length-1)+' ativos negociados na época.</p>';
+  h+='<p class="muted sm" style="margin:0 0 8px">'+(H.i===0?'Preços do início de '+hLabel(now)+'.':'Variação do último mês, de '+hLabel(hAdd(H.ym0,H.i-1))+'.')+' '+(list.length-2)+' ativos negociados na época, mais Tesouro Selic e CDB.</p>';
   list.filter(function(t){return !hCat||hSec(t)===hCat;}).forEach(function(t){var px=H.px[t],pv=H.prev[t],v=H.i>0&&pv?px/pv-1:null,held=H.pos[t];
    h+='<button class="bq-row" data-act="h_trade" data-t="'+t+'"'+(held?' style="border-color:var(--brand-hi)"':'')+'><span class="tk">'+hName(t)+'</span><span class="nm">'+hSec(t)+(held?' · você tem '+held.q:'')+'</span><span class="px">'+fmt2(px)+(v==null?'':'<small class="'+(v>=0?'up':'dn')+'">'+pct(v)+' no mês</small>')+'</span></button>';});
  }else{
@@ -1974,11 +1986,11 @@ function histScreen(){
   '<nav class="tabs" style="grid-template-columns:repeat(3,1fr)">'+[['port','🧺','Carteira'],['mkt','📈','Ações'],['months','📰','Mês a mês']].map(function(t){return '<button class="tab '+(hTab===t[0]?'on':'')+'" data-act="h_tab" data-t="'+t[0]+'"><span>'+t[1]+'</span>'+t[2]+'</button>';}).join('')+'</nav></footer>';
  return h;
 }
-function hExempt(t,sold){return t==='SELIC'?false:bExempt(t,sold);}
-function hRate(t){return t==='SELIC'?.15:bTaxRate(t);}
+function hExempt(t,sold){return t==='SELIC'||t==='CDB'?false:bExempt(t,sold);}
+function hRate(t){return t==='SELIC'||t==='CDB'?.15:bTaxRate(t);}
 function hTradeHTML(m){
  var H=hGet(),px=H.px[m.t]||0,P=H.pos[m.t],held=P?P.q:0,buy=m.side==='buy',n=Math.max(0,Math.floor(m.n||0)),tot=n*px,done=H.i>=H.n,h='';
- h='<p class="muted sm">'+hSec(m.t)+'</p><h2>'+hName(m.t)+'</h2><p class="muted">'+fmt2(px)+(m.t==='SELIC'?' por título':' por ação')+(done?' · período encerrado':'')+'</p>';
+ h='<p class="muted sm">'+hSec(m.t)+'</p><h2>'+hName(m.t)+'</h2><p class="muted">'+fmt2(px)+(m.t==='SELIC'||m.t==='CDB'?' por título':' por ação')+(done?' · período encerrado':'')+'</p>';
  if(done)return h+'<div class="stack"><button class="btn center" data-act="close">Fechar</button></div>';
  h+='<div class="chips"><button class="chip '+(buy?'on':'')+'" data-act="hb_side" data-v="buy">Comprar</button><button class="chip '+(!buy?'on':'')+'" data-act="hb_side" data-v="sell"'+(held?'':' disabled')+'>Vender</button></div>'+
   '<p class="sm" style="margin:10px 0 4px">'+(buy?'Caixa: '+fmt2(H.cash)+' · dá para '+(px?Math.floor(H.cash/px):0):'Você tem '+held)+'</p>'+
@@ -2025,13 +2037,72 @@ function hEndHTML(){
  h+='<p class="muted sm">Valores em reais da época. Ibovespa e poupança com os mesmos aportes; poupança aproximada, sem a TR.</p>';
  return h+'<div class="stack"><button class="btn gold center" data-act="h_new">Simular outro período</button><button class="btn center" data-act="close">Voltar</button></div>';
 }
+/* ---------- Calculadora viver de renda (dados históricos reais) ---------- */
+var RS={g:'5.000',f:1,y0:2016,y1:0},RR=null;
+function rMonthRets(ym){var M=hMonth(ym),P=hMonth(hAdd(ym,-1)),o={};if(!M)return o;for(var t in M){var b=P&&P[t]?P[t].l:M[t].f;if(b>0)o[t]=M[t].l/b-1;}return o;}
+function rIbov(o){if(o.BOVA11!=null)return o.BOVA11;var a=[];for(var t in o)if(!ETFS[t]&&!FIIS[t])a.push(o[t]);return a.length?a.reduce(function(x,y){return x+y;},0)/a.length:0;}
+function rNeed(rets,wd,infl){var A=1,B=0,C=0;for(var t=0;t<rets.length;t++){if(wd[t]>0){C=Math.max(C,(B+wd[t])/A);B+=wd[t];}A*=1+rets[t];B*=1+rets[t];}var den=A-infl;return den<=0?Infinity:Math.max(C,B/den);}
+function rReal(rets,infl){var g=rets.reduce(function(a,r){return a*(1+r);},1);return Math.pow(g/infl,12/rets.length)-1;}
+function rCompute(){
+ var y1=RS.y1||Math.floor(HEND/100),ym0=RS.y0*100+1,ymE=Math.min(y1*100+12,HEND),months=[];for(var ym=ym0;ym<=ymE;ym=hAdd(ym,1))months.push(ym);
+ var base0=HD.cum[ym0]/(1+hInd(ym0).ipca),infl=HD.cum[ymE]/base0,today=HD.cum[HEND],k=RS.f;
+ var wd=months.map(function(ym,i){return i%k===0?hNum(RS.g)*k*(HD.cum[ym]/(1+hInd(ym).ipca))/today:0;});
+ var mr=months.map(rMonthRets),cdi=months.map(function(ym){return hInd(ym).cdi;}),ib=mr.map(rIbov);
+ var toToday=today/base0,res=[];
+ function add(id,e,n,d,rets,extra){var C=rNeed(rets,wd,infl);res.push({id:id,e:e,n:n,d:d,C:isFinite(C)?C*toToday:Infinity,real:rReal(rets,infl),x:extra});}
+ add('seg','🛟','Segura','100% CDI',cdi);
+ add('mod','⚖️','Moderada','70% CDI e 30% Ibovespa',cdi.map(function(c,i){return .7*c+.3*ib[i];}));
+ add('arr','🚀','Arriscada','100% Ibovespa',ib);
+ var cand=[];Object.keys(mr[0]).forEach(function(t){if(mr.every(function(o){return o[t]!=null;}))cand.push(t);});
+ var sc=cand.map(function(t){var r=mr.map(function(o){return o[t];});return {t:t,r:r,C:rNeed(r,wd,infl),tot:r.reduce(function(a,x){return a*(1+x);},1)-1};});
+ sc.push({t:'CDI',r:cdi,C:rNeed(cdi,wd,infl),tot:cdi.reduce(function(a,x){return a*(1+x);},1)-1});
+ var seen={};sc=sc.filter(function(x){return isFinite(x.C);}).sort(function(a,b){return a.C-b.C;}).filter(function(x){var co=x.t.slice(0,4);if(seen[co])return false;seen[co]=1;return true;}).slice(0,5); // um ativo por empresa
+ if(sc.length)add('best','🔮','Melhor carteira do período','Os '+sc.length+' ativos que exigiriam menos patrimônio, em partes iguais',months.map(function(_,i){return sc.reduce(function(a,x){return a+x.r[i];},0)/sc.length;}),sc);
+ RR={ym0:ym0,ymE:ymE,g:hNum(RS.g),f:k,infl:infl,res:res,n:cand.length,est:hInd(ymE).est};
+}
+function rStart(){var g=document.getElementById('rg');if(g)RS.g=g.value;if(hNum(RS.g)<=0){toast('Informe quanto você gasta por mês.');return;}
+ var y1=RS.y1||Math.floor(HEND/100);if(RS.y0>y1){toast('O ano inicial precisa vir antes do final.');return;}
+ var ps=[hLoadInd()];for(var y=Math.max(2008,RS.y0-1);y<=y1;y++)ps.push(hLoadYear(y));
+ hBusy(Promise.all(ps),function(){rCompute();window.scrollTo(0,0);});}
+function rendaScreen(){
+ var h='';
+ if(!useSB())return '<div class="hero" style="padding-bottom:28px"><h1 style="font-size:40px">🏖️ Viver<br><em>de renda</em></h1><p>Quanto você precisa investido para viver de renda?</p></div><div class="diffs"><div class="card"><h3>Disponível no site e no app</h3><p class="muted">A calculadora usa os dados históricos que ficam no site do jogo.</p><p><a href="https://beloathaide-web.github.io/Vida-e-grana/" target="_blank" rel="noopener" style="color:inherit">Abrir o site do jogo</a></p></div><button class="btn center" data-act="b_exit">Voltar</button></div>';
+ if(HD.err)h+='<div class="warn" style="margin:12px 14px 0">Não deu para carregar os dados. Confira a internet. <button class="chip" data-act="h_retry">Tentar de novo</button></div>';
+ if(!HD.ind){if(!HD.busy&&!HD.err)setTimeout(function(){hBusy(hLoadInd());},0);return h+'<p class="muted" style="text-align:center;padding:40px 20px">Carregando…</p>';}
+ var yE=Math.floor(HEND/100),y1=RS.y1||yE,ya='',yb='';
+ for(var y=2008;y<=yE;y++){ya+='<option value="'+y+'"'+(y===RS.y0?' selected':'')+'>'+y+'</option>';yb+='<option value="'+y+'"'+(y===y1?' selected':'')+'>'+y+'</option>';}
+ h+='<div class="hero" style="padding-bottom:26px"><h1 style="font-size:40px">🏖️ Viver<br><em>de renda</em></h1><p>Quanto você precisaria ter investido para pagar seus gastos só com o rendimento, sem nunca comer o dinheiro? Calculado com o que aconteceu de verdade.</p></div><div class="diffs">';
+ h+='<div class="card"><h3>Seus gastos</h3><div class="field"><label for="rg">Quanto você gasta por mês</label><input id="rg" class="input" inputmode="numeric" value="'+esc(RS.g)+'"></div><p class="muted sm" style="margin:6px 0 0">Em reais de hoje. O cálculo corrige pela inflação de cada época.</p>'+
+  '<div class="lbl"><span>De quanto em quanto tempo você resgata</span></div><div class="chips">'+[[1,'30 dias'],[6,'180 dias'],[12,'360 dias']].map(function(o){return '<button class="chip'+(RS.f===o[0]?' on':'')+'" data-act="r_f" data-v="'+o[0]+'">'+o[1]+'</button>';}).join('')+'</div></div>';
+ h+='<div class="card"><h3>Período histórico</h3><div class="chips" style="margin-bottom:8px">'+[5,10,15].map(function(n){return '<button class="chip'+(RS.y0===yE-n+1&&y1===yE?' on':'')+'" data-act="r_q" data-n="'+n+'">Últimos '+n+' anos</button>';}).join('')+'</div>'+
+  '<div class="grid2"><div class="field"><label for="ry0">De</label><select id="ry0" class="input">'+ya+'</select></div><div class="field"><label for="ry1">Até</label><select id="ry1" class="input">'+yb+'</select></div></div><p class="muted sm" style="margin:6px 0 0">Os dados vão até '+hLabel(HEND)+'.</p></div>';
+ h+='<button class="btn gold center" style="padding:15px;font-size:17px" data-act="r_calc"'+(HD.busy?' disabled':'')+'>'+(HD.busy?'Calculando…':'Calcular')+'</button>';
+ if(RR){
+  h+='<div class="lbl" style="margin-top:18px"><span>'+hLabel(RR.ym0)+' a '+hLabel(RR.ymE)+' · '+fmt(RR.g)+' por mês</span></div>';
+  RR.res.forEach(function(r){
+   h+='<div class="card"><div class="kv" style="border:0;padding:0"><span><b style="font-size:17px">'+r.e+' '+r.n+'</b><br><small class="muted">'+r.d+'</small></span></div>';
+   if(isFinite(r.C))h+='<div style="font-size:26px;font-weight:800;margin:6px 0 2px">'+fmt(r.C)+'</div><p class="muted sm" style="margin:0">em reais de hoje · dá para retirar '+pct1(RR.g*12/r.C)+' ao ano</p>';
+   else h+='<div style="font-size:18px;font-weight:800;margin:6px 0 2px" class="dn">Não sustenta</div><p class="muted sm" style="margin:0">Nesse período essa carteira rendeu menos que a inflação: nenhum valor permitiria viver só do rendimento.</p>';
+   h+='<div class="kv" style="margin-top:6px"><span>Rendimento real médio</span><b class="'+(r.real>=0?'up':'dn')+'">'+pct(r.real)+' ao ano</b></div>';
+   if(r.x)h+='<div class="lbl" style="margin:8px 0 4px"><span>Quais eram</span></div>'+r.x.map(function(a){return kvr((a.t==='CDI'?'CDI':a.t)+(BSEC[a.t]?' · '+BSEC[a.t]:''),pct(a.tot)+' no período');}).join('')+
+    '<div class="warn">🔮 Só dá para montar essa carteira olhando para trás. Na época, ninguém sabia quais seriam os melhores ativos.</div>';
+   h+='</div>';});
+  h+='<div class="card"><h3>Como calculamos</h3><p class="sm">É o menor patrimônio que, pagando seus gastos (corrigidos pela inflação) a cada '+(RR.f===1?'30':RR.f===6?'180':'360')+' dias, nunca chega a zero e termina o período com o mesmo poder de compra do início. Ou seja: você vive só da renda, sem comer o dinheiro.</p>'+
+   '<p class="sm">Pela regra prática do jogo, de 300 vezes o gasto mensal, seriam '+fmt(RR.g*300)+'.</p>'+
+   '<p class="muted sm">Preços com dividendos reinvestidos. Valores brutos, sem imposto. Inflação, Selic e CDI do Banco Central'+(RR.est?'; o último mês usa os juros mais recentes disponíveis e inflação estimada':'')+'. Passado não garante futuro. Não é recomendação de investimento.</p></div>';
+ }
+ h+='<button class="btn center" data-act="b_exit">Voltar</button></div>';
+ return h;
+}
 function startScreen(){
  var saved=load(),h='<div class="hero">'+pxMentor('pxhero')+'<h1>Vida<br>&amp; <em>Grana</em></h1><p>Chegue a R$ 1 milhão o mais rápido que conseguir.</p></div><div class="diffs">';
  if(saved&&!saved.over)h+='<button class="diff" data-act="continue" style="border:2px solid var(--brand)"><div class="e">▶️</div><div><b>Continuar'+(saved.nick?': '+esc(saved.nick):'')+'</b><span>'+DIFFS[saved.key].n+' · '+((saved.startAge||START_AGE)+Math.floor(saved.month/12))+' anos</span></div></button>';
  h+='<button class="btn gold center" style="padding:16px;font-size:18px" data-act="newrun">Novo jogo</button>';
  h+='<button class="diff cta" data-act="bolsa"><span class="badge">NOVO</span><div class="e">📡</div><div><b>Bolsa de verdade</b><span>Simulador de carteira: ações reais da B3, dinheiro de mentira'+(useSB()?'':' · só no app')+'</span></div></button>';
- h+='<button class="diff" data-act="hist"><div class="e">⏳</div><div><b>Viagem no tempo</b><span>Invista com preços reais da B3 em qualquer período de 2008 a 2025'+(useSB()?'':' · no site e no app')+'</span></div></button>';
+ h+='<button class="diff" data-act="hist"><div class="e">⏳</div><div><b>Viagem no tempo</b><span>Invista com preços reais da B3 em qualquer período de 2008 até hoje'+(useSB()?'':' · no site e no app')+'</span></div></button>';
+ h+='<button class="diff" data-act="renda"><div class="e">🏖️</div><div><b>Viver de renda</b><span>Quanto você precisa investido para viver de renda? Calcule com dados reais'+(useSB()?'':' · no site e no app')+'</span></div></button>';
  h+='<div class="grid2"><button class="btn center" data-act="rank_start">🏆 Ranking</button><button class="btn center" data-act="howto">💡 Como jogar</button></div>';
+ if(!IS_APP){var vm=viewMode();h+='<div class="chips" style="justify-content:center;margin-top:4px"><span class="muted sm" style="align-self:center">Tela:</span>'+[['phone','📱 Celular'],['desk','🖥️ Computador']].map(function(o){return '<button class="chip'+(vm===o[0]?' on':'')+'" data-act="view" data-v="'+o[0]+'">'+o[1]+'</button>';}).join('')+'</div>';}
  if(!IS_APP)h+=(PLAY_URL?'<a class="btn center" style="display:block;text-decoration:none" href="'+PLAY_URL+'" target="_blank" rel="noopener">📲 Baixar na Play Store</a>':'<div class="btn center" style="opacity:.6;cursor:default">📲 Baixar o app · em breve</div>');
  
  return h+'</div><p class="small-print">Jogo educativo. Empresas, ativos e notícias são fictícios, inspirados no mercado real. Nada aqui é recomendação de investimento.'+(IS_APP?'':' · <a href="privacidade.html" style="color:inherit">Política de privacidade</a>')+'</p>';
@@ -2137,7 +2208,7 @@ function viewLearn(){
 }
 function render(){
  if(!S){
-  $app.innerHTML=startView==='hist'?histScreen():startView==='bolsa'?bolsaScreen():startView==='rank'?rankStandalone():startView==='real'?realScreen():startView==='intro'?introScreen():startView==='mode'?modeScreen():startView==='nick'?nickScreen():startScreen();
+  $app.innerHTML=startView==='renda'?rendaScreen():startView==='hist'?histScreen():startView==='bolsa'?bolsaScreen():startView==='rank'?rankStandalone():startView==='real'?realScreen():startView==='intro'?introScreen():startView==='mode'?modeScreen():startView==='nick'?nickScreen():startScreen();
   if(startView==='intro'){var tr=document.getElementById('obt');if(tr&&tr.addEventListener)tr.addEventListener('scroll',obSync,{passive:true});}
   if(startView==='nick'){var ni=document.getElementById('nick0');if(ni&&ni.addEventListener)ni.addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();obStart();}});}
   return;
@@ -2173,12 +2244,15 @@ window.__vgBack=function(){
  if(tab!=='home'){tab='home';refresh();window.scrollTo(0,0);return 'ok';}
  return 'exit';
 };
-function fitScreen(){try{var touch=IS_APP||(window.matchMedia&&matchMedia('(pointer: coarse)').matches),w=window.innerWidth||0,z=touch&&w>=680?Math.min(1.8,w/540):1;document.documentElement.style.zoom=z>1.01?z.toFixed(3):'';}catch(e){}}
+var VIEWK='vidagrana-tela';function viewMode(){try{return IS_APP?'auto':(localStorage.getItem(VIEWK)||'auto');}catch(e){return 'auto';}}
+function fitScreen(){try{var vm=viewMode(),touch=IS_APP||(window.matchMedia&&matchMedia('(pointer: coarse)').matches),w=window.innerWidth||0,hh=window.innerHeight||0,z=touch&&w>=680?Math.min(1.8,w/540):1;
+ if(vm==='phone')z=1;else if(vm==='desk')z=Math.max(1,Math.min(1.6,hh/700,w/560));document.documentElement.style.zoom=z>1.01?z.toFixed(3):'';}catch(e){}}
 fitScreen();try{window.addEventListener('resize',fitScreen);}catch(e){}
 try{if(!localStorage.getItem(INTRO)){var sv0=load();if(!sv0||sv0.over)startView='intro';}}catch(e){}
-try{document.addEventListener('change',function(e){var t=e.target;if(t&&(t.id==='hy'||t.id==='hm')){hKeep();HS.y=+document.getElementById('hy').value;HS.m=+document.getElementById('hm').value;render();}});}catch(e){}
+try{document.addEventListener('change',function(e){var t=e.target;if(t&&(t.id==='ry0'||t.id==='ry1')){var rg2=document.getElementById('rg');if(rg2)RS.g=rg2.value;RS.y0=+document.getElementById('ry0').value;RS.y1=+document.getElementById('ry1').value;render();return;}
+ if(t&&(t.id==='hy'||t.id==='hm')){hKeep();HS.y=+document.getElementById('hy').value;HS.m=+document.getElementById('hm').value;render();}});}catch(e){}
 render();
-if(typeof window!=='undefined'&&window.__TEST__){window.__TEST__={cur:function(){return cur;},newGame:newGame,tick:tick,S:function(){return S;},modalQ:function(){return modalQ;},act:act,pv:pv,goal:goal,render:render};}
+if(typeof window!=='undefined'&&window.__TEST__){window.__TEST__={R:function(){return RR;},cur:function(){return cur;},newGame:newGame,tick:tick,S:function(){return S;},modalQ:function(){return modalQ;},act:act,pv:pv,goal:goal,render:render};}
 })();
 </script>
 </body>
