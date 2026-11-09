@@ -1,0 +1,190 @@
+ticker,tipo,setor
+ITUB4,acao,Bancos e finanças
+ITUB3,acao,Bancos e finanças
+BBDC4,acao,Bancos e finanças
+BBDC3,acao,Bancos e finanças
+BBAS3,acao,Bancos e finanças
+SANB11,acao,Bancos e finanças
+BPAC11,acao,Bancos e finanças
+ITSA4,acao,Bancos e finanças
+B3SA3,acao,Bancos e finanças
+BBSE3,acao,Bancos e finanças
+CXSE3,acao,Bancos e finanças
+PSSA3,acao,Bancos e finanças
+IRBR3,acao,Bancos e finanças
+BRSR6,acao,Bancos e finanças
+ABCB4,acao,Bancos e finanças
+PETR4,acao,Petróleo e gás
+PETR3,acao,Petróleo e gás
+PRIO3,acao,Petróleo e gás
+UGPA3,acao,Petróleo e gás
+VBBR3,acao,Petróleo e gás
+RECV3,acao,Petróleo e gás
+CSAN3,acao,Petróleo e gás
+BRAV3,acao,Petróleo e gás
+RAIZ4,acao,Petróleo e gás
+VALE3,acao,Mineração e aço
+GGBR4,acao,Mineração e aço
+GOAU4,acao,Mineração e aço
+CSNA3,acao,Mineração e aço
+USIM5,acao,Mineração e aço
+CMIN3,acao,Mineração e aço
+BRAP4,acao,Mineração e aço
+FESA4,acao,Mineração e aço
+SUZB3,acao,Papel e química
+KLBN11,acao,Papel e química
+BRKM5,acao,Papel e química
+UNIP6,acao,Papel e química
+DXCO3,acao,Papel e química
+RANI3,acao,Papel e química
+EQTL3,acao,Energia
+CMIG4,acao,Energia
+CMIG3,acao,Energia
+TAEE11,acao,Energia
+CPFE3,acao,Energia
+EGIE3,acao,Energia
+ENGI11,acao,Energia
+ENEV3,acao,Energia
+AURE3,acao,Energia
+ALUP11,acao,Energia
+ISAE4,acao,Energia
+SBSP3,acao,Saneamento
+CSMG3,acao,Saneamento
+SAPR11,acao,Saneamento
+SAPR4,acao,Saneamento
+ABEV3,acao,Consumo e varejo
+MGLU3,acao,Consumo e varejo
+LREN3,acao,Consumo e varejo
+ASAI3,acao,Consumo e varejo
+VIVA3,acao,Consumo e varejo
+ALPA4,acao,Consumo e varejo
+PCAR3,acao,Consumo e varejo
+GMAT3,acao,Consumo e varejo
+SBFG3,acao,Consumo e varejo
+CEAB3,acao,Consumo e varejo
+GRND3,acao,Consumo e varejo
+VULC3,acao,Consumo e varejo
+AZZA3,acao,Consumo e varejo
+RDOR3,acao,Saúde
+HAPV3,acao,Saúde
+RADL3,acao,Saúde
+FLRY3,acao,Saúde
+QUAL3,acao,Saúde
+HYPE3,acao,Saúde
+PNVL3,acao,Saúde
+WEGE3,acao,Indústria e transporte
+RAIL3,acao,Indústria e transporte
+RENT3,acao,Indústria e transporte
+POMO4,acao,Indústria e transporte
+EMBJ3,acao,Indústria e transporte
+TUPY3,acao,Indústria e transporte
+RAPT4,acao,Indústria e transporte
+FRAS3,acao,Indústria e transporte
+MOVI3,acao,Indústria e transporte
+VAMO3,acao,Indústria e transporte
+MOTV3,acao,Indústria e transporte
+ECOR3,acao,Indústria e transporte
+LEVE3,acao,Indústria e transporte
+KEPL3,acao,Indústria e transporte
+TGMA3,acao,Indústria e transporte
+JSLG3,acao,Indústria e transporte
+SIMH3,acao,Indústria e transporte
+VIVT3,acao,Telecom e tecnologia
+TIMS3,acao,Telecom e tecnologia
+TOTS3,acao,Telecom e tecnologia
+LWSA3,acao,Telecom e tecnologia
+POSI3,acao,Telecom e tecnologia
+INTB3,acao,Telecom e tecnologia
+CYRE3,acao,Construção e shoppings
+MRVE3,acao,Construção e shoppings
+DIRR3,acao,Construção e shoppings
+MULT3,acao,Construção e shoppings
+ALOS3,acao,Construção e shoppings
+IGTI11,acao,Construção e shoppings
+EZTC3,acao,Construção e shoppings
+EVEN3,acao,Construção e shoppings
+TEND3,acao,Construção e shoppings
+JHSF3,acao,Construção e shoppings
+CURY3,acao,Construção e shoppings
+PLPL3,acao,Construção e shoppings
+LAVV3,acao,Construção e shoppings
+TRIS3,acao,Construção e shoppings
+SLCE3,acao,Agro e alimentos
+SMTO3,acao,Agro e alimentos
+BEEF3,acao,Agro e alimentos
+MBRF3,acao,Agro e alimentos
+AGRO3,acao,Agro e alimentos
+TTEN3,acao,Agro e alimentos
+SOJA3,acao,Agro e alimentos
+CAML3,acao,Agro e alimentos
+MDIA3,acao,Agro e alimentos
+JALL3,acao,Agro e alimentos
+COGN3,acao,Educação
+YDUQ3,acao,Educação
+SEER3,acao,Educação
+CSED3,acao,Educação
+ANIM3,acao,Educação
+BOVA11,etf,ETFs
+IVVB11,etf,ETFs
+SMAL11,etf,ETFs
+DIVO11,etf,ETFs
+GOLD11,etf,ETFs
+HASH11,etf,ETFs
+BOVV11,etf,ETFs
+NASD11,etf,ETFs
+SPXI11,etf,ETFs
+ECOO11,etf,ETFs
+XINA11,etf,ETFs
+ACWI11,etf,ETFs
+B5P211,etf,ETFs
+IMAB11,etf,ETFs
+HGLG11,fii,Fundos imobiliários
+KNRI11,fii,Fundos imobiliários
+MXRF11,fii,Fundos imobiliários
+XPML11,fii,Fundos imobiliários
+VISC11,fii,Fundos imobiliários
+KNCR11,fii,Fundos imobiliários
+BTLG11,fii,Fundos imobiliários
+XPLG11,fii,Fundos imobiliários
+HGRU11,fii,Fundos imobiliários
+HGBS11,fii,Fundos imobiliários
+HGRE11,fii,Fundos imobiliários
+HCTR11,fii,Fundos imobiliários
+KNIP11,fii,Fundos imobiliários
+RECR11,fii,Fundos imobiliários
+CPTS11,fii,Fundos imobiliários
+VGHF11,fii,Fundos imobiliários
+VRTA11,fii,Fundos imobiliários
+RBRF11,fii,Fundos imobiliários
+TGAR11,fii,Fundos imobiliários
+HSML11,fii,Fundos imobiliários
+JSRE11,fii,Fundos imobiliários
+PVBI11,fii,Fundos imobiliários
+RBRP11,fii,Fundos imobiliários
+ALZR11,fii,Fundos imobiliários
+LVBI11,fii,Fundos imobiliários
+TRXF11,fii,Fundos imobiliários
+GGRC11,fii,Fundos imobiliários
+RZTR11,fii,Fundos imobiliários
+VILG11,fii,Fundos imobiliários
+BRCO11,fii,Fundos imobiliários
+HFOF11,fii,Fundos imobiliários
+KNSC11,fii,Fundos imobiliários
+RZAK11,fii,Fundos imobiliários
+XPIN11,fii,Fundos imobiliários
+BRCR11,fii,Fundos imobiliários
+VGIP11,fii,Fundos imobiliários
+MCCI11,fii,Fundos imobiliários
+AAPL34,bdr,BDRs
+MSFT34,bdr,BDRs
+AMZO34,bdr,BDRs
+GOGL34,bdr,BDRs
+NVDC34,bdr,BDRs
+TSLA34,bdr,BDRs
+M1TA34,bdr,BDRs
+NFLX34,bdr,BDRs
+COCA34,bdr,BDRs
+DISB34,bdr,BDRs
+MELI34,bdr,BDRs
+BERK34,bdr,BDRs
+JPMC34,bdr,BDRs
