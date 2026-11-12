@@ -522,6 +522,29 @@ main {
   padding: 8px 10px calc(6px + env(safe-area-inset-bottom, 0px));
   box-shadow: 0 -8px 24px rgba(20, 25, 58, 0.1);
 }
+.energia-bar {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-bottom: 6px;
+  padding: 0 2px;
+}
+.ep {
+  flex: 1;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--line);
+  transition: background 0.2s;
+}
+.ep.on {
+  background: var(--brand);
+}
+.ep-b {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--brand);
+  margin-left: 2px;
+}
 .advance {
   display: grid;
   grid-template-columns: 1.4fr 1fr 1fr;
@@ -4039,7 +4062,10 @@ function newGame(key, R) {
 function save() {
   try {
     if (S && !S.over) localStorage.setItem(SAVE, JSON.stringify(S));
-    else if (S && S.over) localStorage.removeItem(SAVE);
+    else if (S && S.over) {
+      cloudSave(S);
+      localStorage.removeItem(SAVE);
+    }
   } catch (e) {}
 }
 function load() {
@@ -5853,6 +5879,24 @@ function act(a, d, inModal) {
     case 'pix_key':
       copyText(PIX_KEY, 'Chave Pix copiada!');
       break;
+    case 'google_login':
+      googleSignIn();
+      break;
+    case 'auth_logout':
+      authLogout();
+      break;
+    case 'cloud_save':
+      cloudSave();
+      toast('☁️ Save enviado para a nuvem!');
+      break;
+    case 'cloud_choose':
+      cloudSyncChoose(d.v === '1');
+      break;
+    case 'calc':
+      startView = 'calc';
+      render();
+      window.scrollTo(0, 0);
+      break;
     case 'renda':
       startView = 'renda';
       HD.err = null;
@@ -6638,17 +6682,23 @@ function act(a, d, inModal) {
 }
 function go(n) {
   if (cur || S.over) return;
+  if (energiaCarga() <= 0) {
+    toast('Energia esgotada! Faça uma lição para ganhar +1 mês, ou volte amanhã. ⚡');
+    return;
+  }
   S.auto = n;
   S.billsOk = false;
   runAuto();
 }
 function runAuto() {
   while (S.auto > 0 && !cur && !modalQ.length && !S.over) {
+    if (energiaCarga() <= 0) break;
     if (!S.billsOk && needBillsNow()) {
       modalQ.push({ type: 'bills', skip: {}, card: S.debt > 0.5 ? 'total' : 'none' });
       break;
     }
     tick();
+    energiaUsar(1);
     S.billsOk = false;
     S.auto--;
   }
@@ -11470,6 +11520,7 @@ function lFinish() {
         }
       } catch (e) {}
     }
+    if (primeira) energiaRecarregar();
     lPut(o);
     if (window.VGNative && VGNative.lessonDone) {
       try {
@@ -11612,6 +11663,49 @@ function lListHTML() {
         '</b></button>';
     });
   return h + '<button class="btn center" data-act="close">Fechar</button></div>';
+}
+/* ENERGIA: limita a 6 meses avançados por dia; lição dá +1 carga extra */
+
+var ENERGIA_KEY = 'vidagrana-energia';
+
+function energiaGet() {
+  try {
+    var e = JSON.parse(localStorage.getItem(ENERGIA_KEY) || 'null');
+    if (!e || e.dia !== hoje()) return { carga: 6, dia: hoje() };
+    return e;
+  } catch (x) {
+    return { carga: 6, dia: hoje() };
+  }
+}
+
+function energiaPut(e) {
+  try { localStorage.setItem(ENERGIA_KEY, JSON.stringify(e)); } catch (x) {}
+}
+
+function energiaCarga() {
+  return energiaGet().carga;
+}
+
+function energiaUsar(n) {
+  var e = energiaGet();
+  e.carga = Math.max(0, e.carga - (n || 1));
+  energiaPut(e);
+}
+
+function energiaRecarregar() {
+  var e = energiaGet();
+  e.carga += 1;
+  energiaPut(e);
+}
+
+function energiaBarHtml() {
+  var e = energiaGet();
+  var c = e.carga, base = 6, pips = '';
+  for (var i = 0; i < base; i++) {
+    pips += '<span class="ep' + (i < c ? ' on' : '') + '"></span>';
+  }
+  var extra = c > base ? '<span class="ep-b">+' + (c - base) + '</span>' : '';
+  return '<div class="energia-bar" title="' + c + ' meses disponíveis hoje">' + pips + extra + '</div>';
 }
 /* ==========================================================================
  * 21 · JANELA "VIDA PESSOAL"
@@ -11758,18 +11852,24 @@ function startScreen() {
     (useSB() ? '' : ' · só no app') +
     '</span></div></button>';
   h +=
-    '<button class="diff" data-act="hist"><div class="e">⏳</div><div><b>Viagem no tempo</b><span>Invista com preços reais da B3 em qualquer período de 2008 até hoje' +
-    (useSB() ? '' : ' · no site e no app') +
-    '</span></div></button>';
-  h +=
-    '<button class="diff" data-act="renda"><div class="e">🏖️</div><div><b>Viver de renda</b><span>Quanto você precisa investido para viver de renda? Calcule com dados reais' +
-    (useSB() ? '' : ' · no site e no app') +
-    '</span></div></button>';
-  h +=
     '<div class="grid2"><button class="btn center" data-act="rank_start">🏆 Ranking</button><button class="btn center" data-act="howto">💡 Como jogar</button></div>';
+  h +=
+    '<button class="btn center" data-act="calc">🧮 Calculadoras</button>';
   if (!IS_APP)
     h +=
       '<button class="btn center" style="background:#fde7b0;color:#3b2414" data-act="pix">💛 Apoie o jogo com um Pix</button>';
+  if (IS_APP) {
+    if (authLogged()) {
+      h +=
+        '<div class="grid2">' +
+        '<button class="btn center sm" data-act="cloud_save">☁️ Salvar na nuvem</button>' +
+        '<button class="btn center sm" data-act="auth_logout">Sair: ' + esc(authName()) + '</button>' +
+        '</div>';
+    } else {
+      h +=
+        '<button class="btn center" data-act="google_login" style="background:#4285F4;color:#fff;font-weight:700">🔑 Entrar com Google</button>';
+    }
+  }
   if (!IS_APP) {
     var vm = document.documentElement.classList.contains('desk') ? 'desk' : 'phone';
     h +=
@@ -11802,6 +11902,37 @@ function startScreen() {
   return (
     h +
     '</div><p class="small-print">Jogo educativo. Empresas, ativos e notícias são fictícios, inspirados no mercado real. Nada aqui é recomendação de investimento.'+(IS_APP?'':' · <a href="privacidade.html" style="color:inherit">Política de privacidade</a>')+'</p>'
+  );
+}
+function cloudSyncScreen() {
+  var r = window._cloudRemote;
+  var local = load();
+  return (
+    '<div class="start-wrap"><div class="start-card">' +
+    '<h2 style="margin:0 0 12px">☁️ Sincronizar save</h2>' +
+    '<p>Você tem um save local e um save na nuvem. Qual deseja manter?</p>' +
+    (local
+      ? '<button class="btn center" data-act="cloud_choose" data-v="0" style="margin-bottom:8px">💾 Manter o save local<br><small class="muted">Enviará para a nuvem</small></button>'
+      : '') +
+    (r
+      ? '<button class="btn gold center" data-act="cloud_choose" data-v="1">☁️ Usar o save da nuvem<br><small class="muted">Substituirá o local</small></button>'
+      : '') +
+    '</div></div>'
+  );
+}
+function calcScreen() {
+  return (
+    '<div class="start-wrap">' +
+    '<div class="start-card">' +
+    '<button class="btn center" data-act="b_exit">← Voltar</button>' +
+    '<h2 style="margin:12px 0 16px">🧮 Calculadoras</h2>' +
+    '<button class="diff" data-act="hist"><div class="e">⏳</div><div><b>Viagem no tempo</b><span>Invista com preços reais da B3 em qualquer período de 2008 até hoje' +
+    (useSB() ? '' : ' · no site e no app') +
+    '</span></div></button>' +
+    '<button class="diff" data-act="renda"><div class="e">🏖️</div><div><b>Viver de renda</b><span>Quanto você precisa investido para viver de renda? Calcule com dados reais' +
+    (useSB() ? '' : ' · no site e no app') +
+    '</span></div></button>' +
+    '</div></div>'
   );
 }
 function header() {
@@ -12278,11 +12409,15 @@ function render() {
   $app.className = 'app v-' + (S ? 'game' : startView);
   if (!S) {
     $app.innerHTML =
-      startView === 'renda'
+      startView === 'cloud_sync'
+        ? cloudSyncScreen()
+        : startView === 'renda'
         ? rendaScreen()
         : startView === 'hist'
           ? histScreen()
-          : startView === 'bolsa'
+          : startView === 'calc'
+            ? calcScreen()
+            : startView === 'bolsa'
             ? bolsaScreen()
             : startView === 'rank'
               ? rankStandalone()
@@ -12323,6 +12458,7 @@ function render() {
             ? rankBody()
             : viewHome();
   var busy = S.over;
+  var semEnergia = energiaCarga() <= 0;
   var tabs = [
     ['home', '🏠', 'Vida'],
     ['invest', '📈', 'Investir'],
@@ -12335,12 +12471,13 @@ function render() {
     '<main>' +
     v +
     '</main><footer class="bar-bottom">' +
+    energiaBarHtml() +
     '<div class="advance"><button class="btn primary center" ' +
-    (busy ? 'disabled' : '') +
+    (busy || semEnergia ? 'disabled' : '') +
     ' data-act="go" data-n="1">Próximo mês ▶</button><button class="btn center" ' +
-    (busy ? 'disabled' : '') +
+    (busy || semEnergia ? 'disabled' : '') +
     ' data-act="go" data-n="3">+3 meses</button><button class="btn center" ' +
-    (busy ? 'disabled' : '') +
+    (busy || semEnergia ? 'disabled' : '') +
     ' data-act="go" data-n="12">+1 ano</button></div>' +
     '<nav class="tabs">' +
     tabs
@@ -12531,6 +12668,137 @@ if (typeof window !== 'undefined' && window.__TEST__) {
     goal: goal,
     render: render,
   };
+}
+/* AUTH: Google Sign-In via VGNative + Supabase Auth + cloud save/load */
+
+var AUTH_KEY = 'vidagrana-auth';
+
+function authGet() {
+  try { return JSON.parse(localStorage.getItem(AUTH_KEY) || 'null'); } catch (x) { return null; }
+}
+function authPut(s) {
+  try { localStorage.setItem(AUTH_KEY, JSON.stringify(s)); } catch (x) {}
+}
+function authClear() {
+  try { localStorage.removeItem(AUTH_KEY); } catch (x) {}
+}
+function authUser()   { var s = authGet(); return s ? s.user_id : null; }
+function authToken()  { var s = authGet(); return s ? s.access_token : null; }
+function authName()   { var s = authGet(); return s ? s.name : ''; }
+function authLogged() { return !!authToken(); }
+
+/* Chamado pelo Android nativo após o fluxo do Google */
+window.vgGoogleLoginResult = function (json) {
+  var r;
+  try { r = JSON.parse(json); } catch (x) { r = { error: 'parse' }; }
+  if (!r || !r.idToken) {
+    if (!r || r.error !== 'cancelled') toast('Erro ao entrar. Tente novamente.');
+    render();
+    return;
+  }
+  fetch(SB_URL.replace(/\/$/, '') + '/auth/v1/token?grant_type=id_token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', apikey: SB_KEY },
+    body: JSON.stringify({ provider: 'google', id_token: r.idToken }),
+  })
+    .then(function (res) { return res.ok ? res.json() : Promise.reject(res.status); })
+    .then(function (session) {
+      authPut({
+        access_token: session.access_token,
+        user_id: session.user.id,
+        name: (session.user.user_metadata || {}).full_name || session.user.email || 'Usuário',
+      });
+      toast('✅ Conectado: ' + authName());
+      cloudSync();
+    })
+    .catch(function () {
+      toast('Erro ao conectar conta. Tente novamente.');
+      render();
+    });
+};
+
+function sbAuth(path, opt) {
+  opt = opt || {};
+  var h = { apikey: SB_KEY, Authorization: 'Bearer ' + authToken() };
+  if (opt.body) {
+    h['Content-Type'] = 'application/json';
+    h['Prefer'] = 'resolution=merge-duplicates';
+  }
+  return fetch(SB_URL.replace(/\/$/, '') + '/rest/v1/' + path, {
+    method: opt.method || 'GET',
+    headers: h,
+    body: opt.body ? JSON.stringify(opt.body) : undefined,
+  }).then(function (r) {
+    return r.ok ? (r.status === 204 ? null : r.json()) : Promise.reject(r.status);
+  });
+}
+
+function cloudSave(state) {
+  if (!authLogged() || !useSB()) return;
+  var s = state || load();
+  if (!s) return;
+  sbAuth('saves', {
+    method: 'POST',
+    body: {
+      user_id: authUser(),
+      data: JSON.stringify(s),
+      updated_at: new Date().toISOString(),
+    },
+  }).catch(function () {});
+}
+
+function cloudLoad(cb) {
+  if (!authLogged() || !useSB()) { cb(null); return; }
+  sbAuth('saves?user_id=eq.' + authUser() + '&select=data,updated_at&limit=1')
+    .then(function (rows) {
+      var row = rows && rows[0];
+      cb(row ? { data: JSON.parse(row.data), at: row.updated_at } : null);
+    })
+    .catch(function () { cb(null); });
+}
+
+function cloudSync() {
+  cloudLoad(function (remote) {
+    if (!remote) { cloudSave(); render(); return; }
+    var local = load();
+    if (!local) {
+      try { localStorage.setItem(SAVE, JSON.stringify(remote.data)); } catch (e) {}
+      toast('☁️ Progresso restaurado da nuvem!');
+      render();
+      return;
+    }
+    window._cloudRemote = remote;
+    startView = 'cloud_sync';
+    render();
+  });
+}
+
+function cloudSyncChoose(useRemote) {
+  if (useRemote && window._cloudRemote) {
+    try { localStorage.setItem(SAVE, JSON.stringify(window._cloudRemote.data)); } catch (e) {}
+    toast('☁️ Progresso da nuvem restaurado!');
+  } else {
+    cloudSave();
+    toast('💾 Save local enviado para a nuvem.');
+  }
+  window._cloudRemote = null;
+  startView = 'home';
+  render();
+}
+
+function googleSignIn() {
+  if (window.VGNative && VGNative.googleSignIn) {
+    VGNative.googleSignIn();
+  } else {
+    toast('Login disponível apenas no app instalado.');
+  }
+}
+
+function authLogout() {
+  authClear();
+  startView = 'home';
+  render();
+  toast('Conta desconectada.');
 }
 })();
 </script>
